@@ -1,0 +1,297 @@
+@import "../shared/tokens.css";
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  background: transparent;
+}
+
+body.solid {
+  background: var(--surface-panel);
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-panel);
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+}
+
+/* ---------- 顶部 ---------- */
+.top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 6px;
+  flex-shrink: 0;
+}
+
+.search-box {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-input);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-item);
+  padding: 6px 10px;
+}
+
+.search-box input {
+  flex: 1;
+  border: none;
+  background: none;
+  outline: none;
+  font-size: var(--text-sm);
+}
+
+.search-box input::placeholder {
+  color: var(--text-placeholder);
+}
+
+.icon,
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.icon svg,
+.icon-btn svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2;
+}
+
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.icon-btn:hover {
+  background: var(--surface-item-hover);
+  color: var(--text-primary);
+}
+
+.icon-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ---------- 分组 Tab ---------- */
+.tabs-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 8px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* 右缘渐隐提示可横滚 */
+  mask-image: linear-gradient(to right, black calc(100% - 24px), transparent);
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  background: var(--surface-tab);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.tab:hover {
+  background: var(--surface-item-hover);
+}
+
+.tab.active {
+  background: var(--surface-tab-active);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+}
+
+/* ---------- 全组宫格 ---------- */
+.grid-sheet[hidden] {
+  display: none;
+}
+
+.grid-sheet {
+  position: absolute;
+  inset: 78px 12px auto 12px;
+  z-index: 10;
+  background: var(--surface-sheet);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-item);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+  padding: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.grid-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  border-radius: var(--radius-item);
+  border: 1px solid var(--border-item);
+  background: var(--surface-item);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.grid-cell svg {
+  width: 18px;
+  height: 18px;
+}
+
+.grid-cell:hover {
+  background: var(--surface-item-hover);
+}
+
+.grid-cell.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ---------- 列表 ---------- */
+.list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.4) transparent;
+}
+
+.chip-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip,
+.card {
+  background: var(--surface-item);
+  border: 1px solid var(--border-item);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+  position: relative;
+}
+
+.chip {
+  border-radius: var(--radius-pill);
+  padding: 6px 12px;
+  font-size: var(--text-sm);
+}
+
+.card {
+  border-radius: var(--radius-item);
+  padding: 8px 10px;
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.card .text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-line;
+}
+
+.chip:hover,
+.card:hover {
+  background: var(--surface-item-hover);
+  border-color: var(--accent);
+}
+
+.chip:active,
+.card:active {
+  transform: scale(0.97);
+}
+
+.group-badge {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+/* 复制成功/失败反馈 */
+.chip.copied,
+.card.copied {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.copied-mark {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--success);
+  display: inline-flex;
+}
+
+.copied-mark svg {
+  width: 14px;
+  height: 14px;
+}
+
+.chip.copy-failed,
+.card.copy-failed {
+  border-color: var(--danger);
+}
+
+.copy-failed .text::after,
+.chip.copy-failed::after {
+  content: " 复制失败,请重试";
+  color: var(--danger);
+  font-size: 11px;
+}
+
+.empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 32px 12px;
+  font-size: var(--text-sm);
+  line-height: 1.8;
+}
