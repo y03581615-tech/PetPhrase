@@ -1,0 +1,131 @@
+<style>
+  .panel-mock {
+    width: 300px; background: #fff; border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.14), 0 2px 8px rgba(0,0,0,.08);
+    display: flex; flex-direction: column; overflow: hidden; margin: 0 auto;
+    font-family: 'Segoe UI', system-ui, sans-serif; color: #1e293b; text-align: left;
+  }
+  .pm-top { display:flex; align-items:center; gap:8px; padding:10px 12px 6px; }
+  .pm-search { flex:1; display:flex; align-items:center; gap:6px; background:#f1f5f9; border-radius:10px; padding:7px 10px; color:#94a3b8; font-size:12px; }
+  .pm-tabs { display:flex; gap:6px; padding:6px 12px 8px; position:relative; align-items:center; }
+  .pm-tabs.scrollable { overflow:hidden; }
+  .pm-tab { padding:5px 12px; border-radius:999px; font-size:12px; background:#f1f5f9; color:#64748b; white-space:nowrap; flex-shrink:0; }
+  .pm-tab.on { background:#fb923c; color:#fff; font-weight:600; box-shadow:0 2px 6px rgba(251,146,60,.35); }
+  .pm-tab.more { padding:5px 9px; background:#fff; border:1px dashed #cbd5e1; color:#94a3b8; }
+  .fade-r { position:absolute; right:40px; top:0; bottom:0; width:36px; background:linear-gradient(to right, transparent, #fff); pointer-events:none; }
+  .pm-body { padding:0 10px 12px; display:flex; flex-direction:column; gap:6px; }
+  .pm-chipflow { display:flex; flex-wrap:wrap; gap:6px; }
+  .pm-chip { background:#f8fafc; border:1px solid #f1f5f9; border-radius:999px; padding:6px 12px; font-size:12.5px; color:#334155; }
+  .pm-row { background:#f8fafc; border:1px solid #f1f5f9; border-radius:10px; padding:8px 10px; font-size:12.5px; line-height:1.5; color:#334155;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .dropdown { margin:0 12px 12px; background:#fff; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.12); padding:10px; display:flex; flex-wrap:wrap; gap:6px; }
+  .grid-sheet { margin:0 12px 12px; background:#fffaf5; border:1px solid #fed7aa; border-radius:12px; padding:12px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+  .grid-cell { background:#fff; border:1px solid #f1f5f9; border-radius:10px; padding:8px 4px; text-align:center; font-size:11.5px; color:#475569; }
+  .grid-cell b { display:block; font-size:16px; margin-bottom:2px; }
+  .grid-cell.on { border-color:#fb923c; background:#fff7ed; color:#9a3412; font-weight:600; }
+  .mock-note { font-size:12px; color:#64748b; margin-top:10px; line-height:1.6; }
+</style>
+
+<h2>分组过多怎么办?—— 10 个分组的压力测试</h2>
+<p class="subtitle">300px 宽的 Tab 栏只装得下 4-5 个分组胶囊。假设用户建了 10 组:工作/客服/代码/邮件/摸鱼/表情/地址/银行/暗号/其他。三种处理方式,点击选择。</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="scroll" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:18px; background:#eef2f7;">
+      <div class="panel-mock">
+        <div class="pm-top"><div class="pm-search">🔍 搜索常用语…</div></div>
+        <div class="pm-tabs scrollable">
+          <span class="pm-tab on">工作</span>
+          <span class="pm-tab">客服</span>
+          <span class="pm-tab">代码</span>
+          <span class="pm-tab">邮件</span>
+          <span class="pm-tab">摸鱼</span>
+          <span class="pm-tab">表情</span>
+          <div class="fade-r" style="right:0;"></div>
+        </div>
+        <div class="pm-body">
+          <div class="pm-chipflow">
+            <span class="pm-chip">收到,马上处理</span>
+            <span class="pm-chip">好的没问题</span>
+          </div>
+          <div class="pm-row">您好,感谢您的反馈。我们已经记录了这个问题,技术团队正在排查。</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A · 纯横向滚动</h3>
+      <p>Tab 条横向滚动(鼠标滚轮/拖拽),右缘渐隐提示还有更多。<b>问题:</b>第 8 个组要滚半天,后面的组永远看不见全貌,「组在哪」没有空间记忆。输入法能这么干是因为手机横滑顺手,桌面端滚轮横滚体验一般。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="overflow" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:18px; background:#eef2f7;">
+      <div class="panel-mock">
+        <div class="pm-top"><div class="pm-search">🔍 搜索常用语…</div></div>
+        <div class="pm-tabs">
+          <span class="pm-tab on">工作</span>
+          <span class="pm-tab">客服</span>
+          <span class="pm-tab">代码</span>
+          <span class="pm-tab more">+6 ⋯</span>
+        </div>
+        <div class="dropdown">
+          <span class="pm-tab">邮件</span>
+          <span class="pm-tab">摸鱼</span>
+          <span class="pm-tab">表情</span>
+          <span class="pm-tab">地址</span>
+          <span class="pm-tab">银行</span>
+          <span class="pm-tab">暗号</span>
+        </div>
+        <div class="pm-body">
+          <div class="pm-row">您好,感谢您的反馈。我们已经记录了这个问题。</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B · 前 3 常驻 + 「⋯」下拉其余</h3>
+      <p>最常用的 3 组固定可见(按使用频率或手动排序),其余收进「⋯」下拉。常用组一击直达,冷门组两击。<b>问题:</b>下拉里的组是二等公民;选中冷门组后它临时顶到前排还是留在下拉里,交互有歧义。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="grid" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:18px; background:#eef2f7;">
+      <div class="panel-mock">
+        <div class="pm-top"><div class="pm-search">🔍 搜索常用语…</div></div>
+        <div class="pm-tabs">
+          <span class="pm-tab on">工作</span>
+          <span class="pm-tab">客服</span>
+          <span class="pm-tab">代码</span>
+          <span class="pm-tab">邮件</span>
+          <span class="pm-tab more">⊞</span>
+        </div>
+        <div class="grid-sheet">
+          <div class="grid-cell on"><b>💼</b>工作</div>
+          <div class="grid-cell"><b>🎧</b>客服</div>
+          <div class="grid-cell"><b>⌨️</b>代码</div>
+          <div class="grid-cell"><b>✉️</b>邮件</div>
+          <div class="grid-cell"><b>🐟</b>摸鱼</div>
+          <div class="grid-cell"><b>😀</b>表情</div>
+          <div class="grid-cell"><b>📍</b>地址</div>
+          <div class="grid-cell"><b>💳</b>银行</div>
+          <div class="grid-cell"><b>🤫</b>暗号</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C · 滚动 Tab + 「⊞」全组宫格(推荐)</h3>
+      <p>Tab 条可横滚(近处的组顺手切),右端常驻「⊞」一键展开<b>全组宫格</b>:所有组一屏平铺、带图标、位置固定,点选即切换并收起。宫格给了「全貌 + 空间记忆」,横滚给了「近处快切」。组少(≤4)时「⊞」自动隐藏,零负担。10 组、20 组都不怕。</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section">
+  <h3>配套规则(无论选哪个都生效)</h3>
+  <p class="mock-note">
+    · 分组名自定义 + 可选图标,设置里拖拽排序<br>
+    · 记住上次所在分组,下次打开直接回到<br>
+    · 搜索时无视分组、全库过滤,结果里标注来源分组<br>
+    · 软引导:设置里不限制建组数,但 UI 按 ≤8 组优化(超过也能用,宫格滚动)
+  </p>
+</div>
