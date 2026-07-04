@@ -40,32 +40,6 @@
         "skipTaskbar": true,
         "shadow": true,
         "resizable": false
-      },
-      {
-        "label": "preview",
-        "url": "preview.html",
-        "title": "预览",
-        "width": 240,
-        "height": 300,
-        "visible": false,
-        "transparent": true,
-        "decorations": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "shadow": false,
-        "resizable": false,
-        "focus": false
-      },
-      {
-        "label": "settings",
-        "url": "settings.html",
-        "title": "PetPhrase 设置",
-        "width": 760,
-        "height": 540,
-        "minWidth": 640,
-        "minHeight": 480,
-        "visible": false,
-        "center": true
       }
     ],
     "security": {

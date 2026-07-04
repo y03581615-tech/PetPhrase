@@ -7,6 +7,7 @@ import {
   getPhrases,
   getSettings,
   listen,
+  openSettings,
   saveSettings,
 } from "../shared/ipc";
 import { groupIcon, ICON } from "../shared/icons";
@@ -38,6 +39,35 @@ let settings: Settings | null = null;
 let activeGroupId: string | null = null;
 let previewSide: "left" | "right" = "right";
 let hoverTimer: ReturnType<typeof setTimeout> | null = null;
+let previewReady = false;
+let pendingPreview: PreviewPayload | null = null;
+
+/** 预览窗按需创建(面板显示时预热),关面板即销毁,省常驻内存 */
+async function ensurePreviewWindow(): Promise<void> {
+  if (await WebviewWindow.getByLabel("preview")) return;
+  previewReady = false;
+  new WebviewWindow("preview", {
+    url: "preview.html",
+    title: "预览",
+    width: 240,
+    height: 300,
+    visible: false,
+    transparent: true,
+    decorations: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    shadow: false,
+    resizable: false,
+    focus: false,
+  });
+}
+
+async function destroyPreviewWindow(): Promise<void> {
+  previewReady = false;
+  pendingPreview = null;
+  const w = await WebviewWindow.getByLabel("preview");
+  await w?.destroy().catch(() => undefined);
+}
 
 /* ---------- 渲染 ---------- */
 
@@ -204,12 +234,17 @@ async function showPreview(el: HTMLElement, text: string): Promise<void> {
     anchorY: el.getBoundingClientRect().top,
     scale: window.devicePixelRatio,
   };
-  await emit(EVT.showPreview, payload);
+  if (previewReady) {
+    await emit(EVT.showPreview, payload);
+  } else {
+    pendingPreview = payload; // preview-ready 后补发
+    await ensurePreviewWindow();
+  }
 }
 
 async function hidePanel(): Promise<void> {
   if (hoverTimer) clearTimeout(hoverTimer);
-  await emit(EVT.hidePreview, null);
+  await destroyPreviewWindow();
   gridSheet.hidden = true;
   await win.hide();
 }
@@ -243,6 +278,7 @@ async function togglePanel(): Promise<void> {
   await win.show();
   await win.setFocus();
   searchInput.focus();
+  void ensurePreviewWindow(); // 预热,首次悬停前就绪
 }
 
 /* ---------- 装配 ---------- */
@@ -271,9 +307,7 @@ async function main(): Promise<void> {
   };
 
   (document.getElementById("gear") as HTMLButtonElement).onclick = async () => {
-    const settingsWin = await WebviewWindow.getByLabel("settings");
-    await settingsWin?.show();
-    await settingsWin?.setFocus();
+    await openSettings();
     await hidePanel();
   };
 
@@ -303,6 +337,13 @@ async function main(): Promise<void> {
     }
   });
   await listen(EVT.vibrancyFailed, () => document.body.classList.add("solid"));
+  await listen(EVT.previewReady, () => {
+    previewReady = true;
+    if (pendingPreview) {
+      void emit(EVT.showPreview, pendingPreview);
+      pendingPreview = null;
+    }
+  });
 }
 
 void main();

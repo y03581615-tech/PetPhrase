@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use storage::{PhraseData, Settings};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 fn data_dir() -> PathBuf {
     PathBuf::from(std::env::var("APPDATA").expect("APPDATA 环境变量缺失")).join("PetPhrase")
@@ -63,6 +63,25 @@ fn import_phrases(app: AppHandle, path: String) -> Result<PhraseData, String> {
     Ok(data)
 }
 
+/// 设置窗按需创建、关即销毁 —— 常驻内存只留宠物/面板两个 webview。
+/// 必须 async:Windows 上同步 command 在主线程建窗会死锁(空白+无响应)。
+#[tauri::command]
+async fn open_settings(app: AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("settings") {
+        win.show().map_err(|e| e.to_string())?;
+        win.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(&app, "settings", WebviewUrl::App("settings.html".into()))
+        .title("PetPhrase 设置")
+        .inner_size(760.0, 540.0)
+        .min_inner_size(640.0, 480.0)
+        .center()
+        .build()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     let toggle = MenuItem::with_id(app, "toggle-pet", "显示/隐藏宠物", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "open-settings", "设置", true, None::<&str>)?;
@@ -88,10 +107,10 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
                 }
             }
             "open-settings" => {
-                if let Some(win) = app.get_webview_window("settings") {
-                    let _ = win.show();
-                    let _ = win.set_focus();
-                }
+                let app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    let _ = open_settings(app).await;
+                });
             }
             "quit" => app.exit(0),
             _ => {}
@@ -120,25 +139,11 @@ pub fn run() {
             storage::backup_phrases(&data_dir());
             setup_tray(app)?;
 
-            // 设置窗点 X = 隐藏而非销毁,保证可反复打开
-            if let Some(win) = app.get_webview_window("settings") {
-                let w = win.clone();
-                win.on_window_event(move |event| {
-                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        api.prevent_close();
-                        let _ = w.hide();
-                    }
-                });
-            }
-
             if let Some(panel) = app.get_webview_window("panel") {
                 // acrylic 失败 → 通知前端退化实底主题
                 if window_vibrancy::apply_acrylic(&panel, Some((255, 255, 255, 140))).is_err() {
                     let _ = app.emit("vibrancy-failed", ());
                 }
-            }
-            if let Some(preview) = app.get_webview_window("preview") {
-                let _ = preview.set_ignore_cursor_events(true);
             }
             Ok(())
         })
@@ -149,7 +154,8 @@ pub fn run() {
             save_settings,
             list_pets,
             export_phrases,
-            import_phrases
+            import_phrases,
+            open_settings
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

@@ -1,6 +1,6 @@
 import { PhysicalPosition } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { listen } from "../shared/ipc";
+import { emit, listen } from "../shared/ipc";
 import { EVT, type PreviewPayload } from "../shared/types";
 import "./preview.css";
 
@@ -27,11 +27,13 @@ async function show(p: PreviewPayload): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  await win.setIgnoreCursorEvents(true); // 永不抢点击
   await listen<PreviewPayload>(EVT.showPreview, (e) => void show(e.payload));
   await listen(EVT.hidePreview, () => {
     card.hidden = true;
     void win.hide();
   });
+  await emit(EVT.previewReady, null); // 就绪握手,panel 补发排队中的预览
 }
 
 void main();

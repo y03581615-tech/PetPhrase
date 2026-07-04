@@ -40,6 +40,7 @@ export const EVT = {
   hidePreview: "hide-preview",
   vibrancyFailed: "vibrancy-failed",
   togglePanel: "toggle-panel",
+  previewReady: "preview-ready",
 } as const;
 
 /** show-preview 事件载荷 */

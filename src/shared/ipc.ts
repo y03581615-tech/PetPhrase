@@ -12,6 +12,7 @@ export const listPets = (): Promise<PetInfo[]> => invoke("list_pets");
 export const exportPhrases = (path: string): Promise<void> => invoke("export_phrases", { path });
 export const importPhrases = (path: string): Promise<PhraseData> =>
   invoke("import_phrases", { path });
+export const openSettings = (): Promise<void> => invoke("open_settings");
 
 export const copyText = (text: string): Promise<void> => writeText(text);
 
