@@ -1,4 +1,5 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import {
@@ -450,6 +451,11 @@ async function main(): Promise<void> {
 
   renderAll();
   await initAppearance();
+
+  // 窗口常驻隐藏,重新聚焦时重扫宠物目录(检测 npx petdex 新装的宠物)
+  await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
+    if (focused) void renderPets();
+  });
 }
 
 void main();
