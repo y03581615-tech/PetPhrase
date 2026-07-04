@@ -24,6 +24,7 @@ export component PanelWindow inherits Window {
     width: 300px;
     height: 400px;
     title: "常用语";
+    icon: @image-url("icon.png");
     default-font-family: "Microsoft YaHei UI";
     default-font-size: 13px;
 
@@ -75,12 +76,14 @@ export component PanelWindow inherits Window {
                             padding-left: 10px;
                             padding-right: 10px;
                             spacing: 6px;
-                            Image {
-                                source: @image-url("icons/search.svg");
-                                colorize: Theme.text-placeholder;
-                                width: 14px;
-                                height: 14px;
-                                vertical-alignment: center;
+                            VerticalLayout {
+                                alignment: center;
+                                Image {
+                                    source: @image-url("icons/search.svg");
+                                    colorize: Theme.text-placeholder;
+                                    width: 14px;
+                                    height: 14px;
+                                }
                             }
                             Rectangle {
                                 clip: true;

@@ -12,7 +12,7 @@ use anim::{Animator, PetState};
 use logic::LaidItem;
 use pet_loader::PetInfo;
 use slint::winit_030::{winit, WinitWindowAccessor};
-use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -399,7 +399,7 @@ fn ensure_panel_native(app: &Rc<App>) {
     app.panel.window().with_winit_window(|w: &winit::window::Window| {
         use winit::platform::windows::WindowExtWindows;
         w.set_skip_taskbar(true);
-        acrylic_ok = window_vibrancy::apply_acrylic(w, Some((255, 255, 255, 120))).is_ok();
+        acrylic_ok = window_vibrancy::apply_acrylic(w, Some((255, 255, 255, 170))).is_ok();
     });
     // acrylic 失败或用户选实底 → solid
     set_theme(app, solid_pref || !acrylic_ok);
@@ -712,12 +712,13 @@ fn wire_settings(app: &Rc<App>) {
     });
 
     let a = app.clone();
-    app.settings_win.on_group_moved(move |i, delta| {
+    app.settings_win.on_group_dropped(move |from, to| {
         {
             let mut st = a.state.borrow_mut();
-            let from = i as usize;
-            let to = (i + delta).clamp(0, st.data.groups.len() as i32 - 1) as usize;
-            if from == to || from >= st.data.groups.len() {
+            let len = st.data.groups.len() as i32;
+            let from = from.clamp(0, len - 1) as usize;
+            let to = to.clamp(0, len - 1) as usize;
+            if from == to {
                 return;
             }
             let g = st.data.groups.remove(from);
@@ -781,14 +782,18 @@ fn wire_settings(app: &Rc<App>) {
     });
 
     let a = app.clone();
-    app.settings_win.on_phrase_moved(move |i, delta| {
+    app.settings_win.on_phrase_dropped(move |from, to| {
         {
             let mut st = a.state.borrow_mut();
             let idx = st.active_group;
             let Some(g) = st.data.groups.get_mut(idx) else { return };
-            let from = i as usize;
-            let to = (i + delta).clamp(0, g.phrases.len() as i32 - 1) as usize;
-            if from == to || from >= g.phrases.len() {
+            let len = g.phrases.len() as i32;
+            if len == 0 {
+                return;
+            }
+            let from = from.clamp(0, len - 1) as usize;
+            let to = to.clamp(0, len - 1) as usize;
+            if from == to {
                 return;
             }
             let p = g.phrases.remove(from);

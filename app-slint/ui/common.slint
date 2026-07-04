@@ -14,14 +14,14 @@ export global Theme {
     out property <color> danger: #dc2626;
     out property <color> success: #16a34a;
 
-    out property <color> surface-panel: solid ? #ffffff : #ffffff8c;
-    out property <color> surface-item: solid ? #f8fafc : #ffffff99;
-    out property <color> surface-item-hover: solid ? #fff7ed : #ffffffeb;
-    out property <color> surface-input: solid ? #f1f5f9 : #ffffff80;
-    out property <color> surface-tab: solid ? #f1f5f9 : #ffffff59;
-    out property <color> surface-tab-active: solid ? #ffe8d6 : #fffffff2;
-    out property <color> surface-sheet: solid ? #ffffff : #ffffffd9;
-    out property <color> border-soft: solid ? #e2e8f0 : #ffffffa6;
+    out property <color> surface-panel: solid ? #ffffff : #ffffff96;
+    out property <color> surface-item: solid ? #f8fafc : #ffffffb8;
+    out property <color> surface-item-hover: solid ? #fff7ed : #fffffff5;
+    out property <color> surface-input: solid ? #f1f5f9 : #ffffff8f;
+    out property <color> surface-tab: solid ? #f1f5f9 : #ffffff66;
+    out property <color> surface-tab-active: solid ? #ffe8d6 : #fffffffa;
+    out property <color> surface-sheet: solid ? #ffffff : #ffffffe6;
+    out property <color> border-soft: solid ? #e2e8f0 : #ffffffb3;
 
     out property <color> preview-bg: #1e293b;
     out property <color> preview-text: #f1f5f9;
@@ -82,6 +82,154 @@ export component GroupIcon inherits Rectangle {
     if idx == 9: Image { source: @image-url("icons/map-pin.svg"); colorize: tint; width: 100%; height: 100%; }
     if idx == 10: Image { source: @image-url("icons/credit-card.svg"); colorize: tint; width: 100%; height: 100%; }
     if idx >= 11: Image { source: @image-url("icons/folder.svg"); colorize: tint; width: 100%; height: 100%; }
+}
+
+/// 主按钮(橘色实心)
+export component PrimaryButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    callback clicked;
+    width: label.preferred-width + 32px;
+    height: 34px;
+    border-radius: 8px;
+    background: !enabled ? #fdba74 : (pta.has-hover ? #ea580c : Theme.accent);
+    animate background { duration: 150ms; }
+    label := Text {
+        text: root.text;
+        color: #ffffff;
+        font-size: 13px;
+        font-weight: 600;
+    }
+    pta := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+/// 次按钮(浅底)/危险幽灵按钮
+export component GhostButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> danger: false;
+    in property <bool> enabled: true;
+    in property <image> icon;
+    callback clicked;
+    width: content.preferred-width + 28px;
+    height: 34px;
+    border-radius: 8px;
+    background: !gta.has-hover ? (danger ? transparent : #f1f5f9)
+        : danger ? #fef2f2 : #e2e8f0;
+    border-width: danger ? 1px : 0;
+    border-color: gta.has-hover ? #fecaca : transparent;
+    animate background { duration: 150ms; }
+    content := HorizontalLayout {
+        alignment: center;
+        spacing: 6px;
+        if root.icon.width > 0: VerticalLayout {
+            alignment: center;
+            Image {
+                source: root.icon;
+                colorize: root.danger ? Theme.danger : Theme.text-secondary;
+                width: 14px;
+                height: 14px;
+            }
+        }
+        Text {
+            text: root.text;
+            vertical-alignment: center;
+            color: root.danger ? Theme.danger : Theme.text-secondary;
+            font-size: 13px;
+        }
+    }
+    gta := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+/// 多行输入区(统一风格,替代 std TextEdit)
+export component InputArea inherits Rectangle {
+    in-out property <string> text <=> ti.text;
+    in property <string> placeholder;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: ti.has-focus ? Theme.accent : #e2e8f0;
+    background: #ffffff;
+    forward-focus: ti;
+    clip: true;
+    Flickable {
+        x: 10px;
+        y: 8px;
+        width: parent.width - 20px;
+        height: parent.height - 16px;
+        viewport-height: Math.max(self.height, ti.preferred-height);
+        ti := TextInput {
+            single-line: false;
+            wrap: word-wrap;
+            font-size: 12.5px;
+            color: Theme.text-primary;
+        }
+    }
+    if ti.text == "" && !ti.has-focus: Text {
+        x: 10px;
+        y: 8px;
+        text: root.placeholder;
+        color: Theme.text-placeholder;
+        font-size: 12.5px;
+    }
+    TouchArea {
+        visible: !ti.has-focus;
+        clicked => { ti.focus(); }
+    }
+}
+
+/// 单选分段控件(互斥,永远恰好一项选中)
+export component SegmentedPair inherits Rectangle {
+    in property <string> left-label;
+    in property <string> right-label;
+    in property <bool> right-selected;
+    callback changed(bool); // true = 右项
+    width: 280px;
+    height: 34px;
+    border-radius: 8px;
+    background: #eef2f7;
+    HorizontalLayout {
+        padding: 3px;
+        spacing: 2px;
+        Rectangle {
+            border-radius: 6px;
+            background: !root.right-selected ? #ffffff : (lta.has-hover ? #e8edf3 : transparent);
+            drop-shadow-blur: !root.right-selected ? 6px : 0;
+            drop-shadow-color: #0f172a1f;
+            Text {
+                text: root.left-label;
+                font-size: 12.5px;
+                font-weight: !root.right-selected ? 600 : 400;
+                color: !root.right-selected ? Theme.text-primary : Theme.text-muted;
+            }
+            lta := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.changed(false); }
+            }
+        }
+        Rectangle {
+            border-radius: 6px;
+            background: root.right-selected ? #ffffff : (rta.has-hover ? #e8edf3 : transparent);
+            drop-shadow-blur: root.right-selected ? 6px : 0;
+            drop-shadow-color: #0f172a1f;
+            Text {
+                text: root.right-label;
+                font-size: 12.5px;
+                font-weight: root.right-selected ? 600 : 400;
+                color: root.right-selected ? Theme.text-primary : Theme.text-muted;
+            }
+            rta := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.changed(true); }
+            }
+        }
+    }
 }
 
 export component IconButton inherits Rectangle {
