@@ -26,3 +26,11 @@ dist-ssr
 .superpowers/
 app-slint/target/
 .codegraph/
+
+# 本地文档,不进 GitHub
+CLAUDE.md
+README.dev.md
+docs/
+src-tauri/
+node_modules/
+.vite/
