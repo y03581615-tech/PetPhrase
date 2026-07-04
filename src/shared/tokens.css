@@ -1,0 +1,99 @@
+/* PetPhrase design tokens —— spec §3.4
+ * 默认主题 acrylic:窗口背景由 window-vibrancy 提供真磨砂,CSS 只叠半透明表面。
+ * body.solid:实底降级(系统透明效果关闭 / acrylic 失败 / 用户选择)。 */
+
+:root {
+  /* 表面 */
+  --surface-panel: rgba(255, 255, 255, 0.55);
+  --surface-item: rgba(255, 255, 255, 0.6);
+  --surface-item-hover: rgba(255, 255, 255, 0.92);
+  --surface-input: rgba(255, 255, 255, 0.5);
+  --surface-tab: rgba(255, 255, 255, 0.35);
+  --surface-tab-active: rgba(255, 255, 255, 0.95);
+  --surface-sheet: rgba(255, 255, 255, 0.85);
+
+  /* 边框 */
+  --border-soft: rgba(255, 255, 255, 0.65);
+  --border-item: rgba(255, 255, 255, 0.7);
+
+  /* 文字 —— 对比度 ≥4.5:1(深板岩系) */
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-placeholder: #94a3b8;
+
+  /* 强调 */
+  --accent: #f97316;
+  --accent-soft: rgba(249, 115, 22, 0.14);
+  --success: #16a34a;
+  --danger: #dc2626;
+
+  /* 预览浮层(始终深色,保长文可读) */
+  --preview-bg: #1e293b;
+  --preview-text: #f1f5f9;
+
+  /* 几何与动效 */
+  --radius-panel: 14px;
+  --radius-item: 10px;
+  --radius-pill: 999px;
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* 字体 */
+  --font-ui:
+    "Segoe UI", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
+  --text-sm: 12px;
+  --text-base: 13px;
+}
+
+/* 实底降级:近似「清爽极简白」 */
+body.solid {
+  --surface-panel: #ffffff;
+  --surface-item: #f8fafc;
+  --surface-item-hover: #fff7ed;
+  --surface-input: #f1f5f9;
+  --surface-tab: #f1f5f9;
+  --surface-tab-active: #ffe8d6;
+  --surface-sheet: #ffffff;
+  --border-soft: #e2e8f0;
+  --border-item: #e2e8f0;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  background: transparent;
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+input,
+textarea {
+  font: inherit;
+  color: var(--text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
