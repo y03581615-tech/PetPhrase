@@ -13,6 +13,9 @@
     "core:window:allow-outer-position",
     "core:window:allow-outer-size",
     "core:window:allow-current-monitor",
-    "opener:default"
+    "opener:default",
+    "clipboard-manager:allow-write-text",
+    "dialog:default",
+    "autostart:default"
   ]
 }
