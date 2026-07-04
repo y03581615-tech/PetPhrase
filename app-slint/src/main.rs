@@ -33,14 +33,6 @@ fn icon_idx(icon: &Option<String>) -> i32 {
         .unwrap_or(11) as i32
 }
 
-thread_local! {
-    /// 下一个创建的原生窗口不激活(仅预览窗首次 show 时置位)
-    static NO_ACTIVATE_NEXT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
-}
-
-/// 预览窗「隐藏」= 挪到屏幕外,避免 show/hide 引发的激活/焦点事件
-const OFFSCREEN: i32 = -10000;
-
 fn data_dir() -> PathBuf {
     PathBuf::from(std::env::var("APPDATA").expect("APPDATA 环境变量缺失")).join("PetPhrase")
 }
@@ -70,7 +62,6 @@ struct State {
     animator: Animator,
     clipboard: Option<arboard::Clipboard>,
     thumb_cache: HashMap<String, slint::Image>,
-    preview_right: bool,
     panel_native_ready: bool,
     /// show 后是否真正拿到过焦点 —— 防初始 Focused(false) 误隐藏
     panel_got_focus: bool,
@@ -79,7 +70,6 @@ struct State {
 struct App {
     pet: PetWindow,
     panel: PanelWindow,
-    preview: PreviewWindow,
     settings_win: SettingsWindow,
     state: RefCell<State>,
     hover_timer: slint::Timer,
@@ -97,15 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     slint::BackendSelector::new()
         .backend_name("winit".into())
         .renderer_name("software".into())
-        .with_winit_window_attributes_hook(|attrs| {
-            let attrs = attrs.with_transparent(true);
-            // 预览窗创建时标记:初始即不激活,防抢面板焦点
-            if NO_ACTIVATE_NEXT.with(|f| f.get()) {
-                attrs.with_active(false)
-            } else {
-                attrs
-            }
-        })
+        .with_winit_window_attributes_hook(|attrs| attrs.with_transparent(true))
         .select()?;
 
     let dir = data_dir();
@@ -125,7 +107,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Rc::new(App {
         pet: PetWindow::new()?,
         panel: PanelWindow::new()?,
-        preview: PreviewWindow::new()?,
         settings_win: SettingsWindow::new()?,
         state: RefCell::new(State {
             data,
@@ -136,7 +117,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             animator: Animator::new(1, 1),
             clipboard: arboard::Clipboard::new().ok(),
             thumb_cache: HashMap::new(),
-            preview_right: true,
             panel_native_ready: false,
             panel_got_focus: false,
         }),
@@ -181,31 +161,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         w.set_skip_taskbar(true);
     });
 
-    // 预览窗:启动即创建(不激活),常驻屏幕外;此后只挪位置、永不 show/hide,
-    // 彻底杜绝「预览弹出抢焦点 → 面板失焦自隐」
-    NO_ACTIVATE_NEXT.with(|f| f.set(true));
-    app.preview
-        .window()
-        .set_position(slint::PhysicalPosition::new(OFFSCREEN, OFFSCREEN));
-    let _ = app.preview.show();
-    NO_ACTIVATE_NEXT.with(|f| f.set(false));
-    app.preview.window().with_winit_window(|w: &winit::window::Window| {
-        use winit::platform::windows::WindowExtWindows;
-        w.set_skip_taskbar(true);
-        let _ = w.set_cursor_hittest(false);
-        set_no_activate(w);
-    });
-    app.preview
-        .window()
-        .set_position(slint::PhysicalPosition::new(OFFSCREEN, OFFSCREEN));
-
     slint::run_event_loop_until_quit()?;
     Ok(())
 }
 
 fn set_theme(app: &Rc<App>, solid: bool) {
     app.panel.global::<Theme>().set_solid(solid);
-    app.preview.global::<Theme>().set_solid(solid);
     app.settings_win.global::<Theme>().set_solid(solid);
     app.settings_win.set_solid_theme(solid);
 }
@@ -359,9 +320,9 @@ fn wire_panel(app: &Rc<App>) {
     let a = app.clone();
     app.panel.on_escape_pressed(move || hide_panel(&a));
 
-    // 悬停 400ms 出全文预览
+    // 悬停 400ms → 面板内全文预览浮层
     let a = app.clone();
-    app.panel.on_item_hovered(move |i, item_y| {
+    app.panel.on_item_hovered(move |i| {
         let text = match a.state.borrow().items.get(i as usize) {
             Some(it) if it.truncated => it.text.clone(),
             _ => return,
@@ -370,14 +331,31 @@ fn wire_panel(app: &Rc<App>) {
         a.hover_timer.start(
             slint::TimerMode::SingleShot,
             Duration::from_millis(400),
-            move || show_preview(&a2, &text, item_y),
+            move || {
+                a2.panel.set_preview_text(text.clone().into());
+                a2.panel.set_preview_visible(true);
+            },
         );
     });
 
     let a = app.clone();
-    app.panel.on_item_unhovered(move || {
-        a.hover_timer.stop();
-        park_preview(&a);
+    app.panel.on_item_unhovered(move || a.hover_timer.stop());
+
+    // 预览浮层单击 = 复制全文并收面板
+    let a = app.clone();
+    app.panel.on_preview_clicked(move || {
+        let text = a.panel.get_preview_text().to_string();
+        let ok = {
+            let mut st = a.state.borrow_mut();
+            match st.clipboard.as_mut() {
+                Some(cb) => cb.set_text(text).is_ok(),
+                None => false,
+            }
+        };
+        if ok {
+            a.state.borrow_mut().animator.play(PetState::Wave, true);
+            hide_panel(&a);
+        }
     });
 }
 
@@ -467,7 +445,6 @@ fn toggle_panel(app: &Rc<App>) {
         dbg_log("toggle_panel: no placement (pet native window missing?)");
         return;
     };
-    app.state.borrow_mut().preview_right = placement.right_side;
     app.state.borrow_mut().panel_got_focus = false;
 
     app.panel.set_search_text("".into());
@@ -513,59 +490,8 @@ fn dbg_log(msg: &str) {
 fn hide_panel(app: &Rc<App>) {
     app.hover_timer.stop();
     app.panel.set_grid_open(false);
+    app.panel.set_preview_visible(false);
     let _ = app.panel.window().hide();
-    park_preview(app);
-}
-
-/* ================= 预览窗 ================= */
-
-fn show_preview(app: &Rc<App>, text: &str, item_y: f32) {
-    if !app.panel.window().is_visible() {
-        return;
-    }
-    let scale = app.panel.window().scale_factor();
-    let panel_pos = app.panel.window().position();
-    let (right, gap) = (app.state.borrow().preview_right, 8.0 * scale);
-    let preview_w = 240.0 * scale;
-    let panel_w = logic::PANEL_W * scale;
-    let x = if right {
-        panel_pos.x as f32 + panel_w + gap
-    } else {
-        panel_pos.x as f32 - preview_w - gap
-    };
-    // 90px ≈ 面板头部高度,item_y 是列表内偏移
-    let y = (panel_pos.y as f32 + (90.0 + item_y).min(300.0) * scale - 8.0 * scale).max(0.0);
-
-    app.preview.set_preview_text(text.into());
-    app.preview
-        .window()
-        .set_position(slint::PhysicalPosition::new(x as i32, y as i32));
-}
-
-fn park_preview(app: &Rc<App>) {
-    app.preview
-        .window()
-        .set_position(slint::PhysicalPosition::new(OFFSCREEN, OFFSCREEN));
-}
-
-/// WS_EX_NOACTIVATE + WS_EX_TOOLWINDOW:预览窗永不获得焦点,
-/// 根治「悬停预览弹出 → 面板失焦自隐」。
-fn set_no_activate(w: &winit::window::Window) {
-    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-    let Ok(handle) = w.window_handle() else { return };
-    let RawWindowHandle::Win32(h) = handle.as_raw() else { return };
-    unsafe {
-        use windows_sys::Win32::UI::WindowsAndMessaging::{
-            GetWindowLongPtrW, SetWindowLongPtrW, GWL_EXSTYLE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
-        };
-        let hwnd = h.hwnd.get() as windows_sys::Win32::Foundation::HWND;
-        let ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-        SetWindowLongPtrW(
-            hwnd,
-            GWL_EXSTYLE,
-            ex | WS_EX_NOACTIVATE as isize | WS_EX_TOOLWINDOW as isize,
-        );
-    }
 }
 
 /* ================= 设置窗 ================= */
@@ -612,7 +538,11 @@ fn refresh_settings(app: &Rc<App>) {
             g.phrases
                 .iter()
                 .enumerate()
-                .map(|(i, p)| PhraseRowUi { text: p.text.clone().into(), editing: i as i32 == editing })
+                .map(|(i, p)| PhraseRowUi {
+                    text: p.text.clone().into(),
+                    display: p.text.replace('\n', " ").into(),
+                    editing: i as i32 == editing,
+                })
                 .collect(),
         ),
         None => ("".into(), 11, Vec::new()),

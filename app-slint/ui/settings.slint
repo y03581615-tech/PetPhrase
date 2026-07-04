@@ -305,13 +305,14 @@ export component SettingsWindow inherits Window {
                             border-width: root.drag-phrase == i ? 2px : 1px;
                             border-color: editing || root.drag-phrase == i ? Theme.accent : #e2e8f0;
                             background: root.drag-phrase == i ? #fff7ed : #ffffff;
+                            clip: true;
 
                             if !editing: HorizontalLayout {
                                 padding-left: 12px;
                                 padding-right: 8px;
                                 spacing: 6px;
                                 Text {
-                                    text: p.text;
+                                    text: p.display;
                                     color: Theme.text-primary;
                                     font-size: 12.5px;
                                     vertical-alignment: center;
@@ -416,6 +417,30 @@ export component SettingsWindow inherits Window {
                         y: Math.clamp(
                             (Math.clamp(root.drag-phrase + Math.round(root.drag-phrase-dy / 52px) + (root.drag-phrase-dy > 0 ? 1 : 0), 0, root.phrases.length) * 52px) + plist.viewport-y,
                             0px, parent.height - 3px);
+                    }
+                    // 跟手幽灵条:拖到哪条随到哪(单个小元素,零卡顿)
+                    if root.drag-phrase >= 0: Rectangle {
+                        x: 24px;
+                        width: parent.width - 48px;
+                        height: 40px;
+                        border-radius: 8px;
+                        background: #fff7ed;
+                        border-width: 1.5px;
+                        border-color: Theme.accent;
+                        clip: true;
+                        y: Math.clamp(
+                            root.drag-phrase * 52px + root.drag-phrase-dy + plist.viewport-y + 6px,
+                            0px, parent.height - 40px);
+                        Text {
+                            x: 12px;
+                            width: parent.width - 24px;
+                            height: 100%;
+                            text: root.phrases[root.drag-phrase].display;
+                            color: Theme.text-primary;
+                            font-size: 12.5px;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
                     }
                 }
 

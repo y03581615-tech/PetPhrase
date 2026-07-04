@@ -53,7 +53,10 @@ export struct GroupRowUi {
 }
 
 export struct PhraseRowUi {
+    /// 原文(编辑用)
     text: string,
+    /// 单行展示文本(换行已折叠,防溢出重叠)
+    display: string,
     editing: bool,
 }
 
