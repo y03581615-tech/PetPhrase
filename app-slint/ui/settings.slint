@@ -1,0 +1,479 @@
+import { Button, LineEdit, TextEdit, CheckBox, ComboBox, ListView, ScrollView } from "std-widgets.slint";
+import { Theme, GroupRowUi, PhraseRowUi, PetCardUi, GroupIcon, IconButton } from "common.slint";
+
+export component SettingsWindow inherits Window {
+    in property <[GroupRowUi]> groups;
+    in property <[PhraseRowUi]> phrases;
+    in property <[PetCardUi]> pets;
+    in property <string> group-name;
+    in property <int> group-icon-idx;
+    in property <bool> has-group;
+    in property <bool> solid-theme;
+    in property <bool> autostart-on;
+    in property <string> custom-dir;
+    in property <string> data-msg;
+
+    // 确认框
+    in-out property <bool> confirm-visible: false;
+    in property <string> confirm-title;
+    in property <string> confirm-msg;
+    callback confirm-ok;
+
+    callback group-selected(int);
+    callback group-add;
+    callback group-renamed(string);
+    callback group-icon-set(int);
+    callback group-delete;
+    callback group-moved(int, int); // idx, delta
+    callback phrase-add(string);
+    callback phrase-edited(int, string);
+    callback phrase-delete(int);
+    callback phrase-moved(int, int);
+    callback pet-selected(int);
+    callback theme-toggled(bool); // true=solid
+    callback autostart-toggled(bool);
+    callback pick-dir;
+    callback do-export;
+    callback do-import;
+
+    in-out property <int> editing-idx: -1;
+    in-out property <int> page: 0;
+
+    title: "PetPhrase 设置";
+    default-font-family: "Microsoft YaHei UI";
+    width: 780px;
+    height: 560px;
+    background: #f8fafc;
+    default-font-size: 13px;
+
+    VerticalLayout {
+        padding: 0;
+        spacing: 0;
+
+        // ---- 顶部页签 ----
+        Rectangle {
+            height: 42px;
+            background: #ffffff;
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-top: 6px;
+                spacing: 4px;
+                alignment: start;
+                for label[i] in ["常用语", "外观与行为"]: Rectangle {
+                    width: pt.preferred-width + 32px;
+                    pt := Text {
+                        text: label;
+                        font-size: 13px;
+                        font-weight: root.page == i ? 600 : 400;
+                        color: root.page == i ? Theme.accent : Theme.text-muted;
+                    }
+                    Rectangle {
+                        y: parent.height - 2px;
+                        height: 2px;
+                        width: parent.width - 16px;
+                        x: 8px;
+                        background: root.page == i ? Theme.accent : transparent;
+                    }
+                    TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.page = i; }
+                    }
+                }
+            }
+            Rectangle { y: parent.height - 1px; height: 1px; background: #e2e8f0; }
+        }
+
+        // ================= 常用语页 =================
+        if root.page == 0: HorizontalLayout {
+            padding: 0;
+            spacing: 0;
+
+            // 左栏分组
+            Rectangle {
+                width: 200px;
+                background: #ffffff;
+                VerticalLayout {
+                    padding: 8px;
+                    spacing: 4px;
+                    ListView {
+                        vertical-stretch: 1;
+                        for g[i] in root.groups: Rectangle {
+                            height: 38px;
+                            border-radius: 8px;
+                            border-width: 1px;
+                            border-color: g.selected ? #f9731650 : transparent;
+                            background: g.selected ? Theme.accent-soft : (grow-ta.has-hover ? #f1f5f9 : transparent);
+                            HorizontalLayout {
+                                padding-left: 8px;
+                                padding-right: 6px;
+                                spacing: 6px;
+                                GroupIcon { idx: g.icon-idx; }
+                                Text {
+                                    text: g.name;
+                                    color: g.selected ? Theme.text-primary : Theme.text-secondary;
+                                    font-weight: g.selected ? 600 : 400;
+                                    vertical-alignment: center;
+                                    overflow: elide;
+                                    horizontal-stretch: 1;
+                                }
+                                Text {
+                                    text: g.count;
+                                    color: Theme.text-placeholder;
+                                    font-size: 11px;
+                                    vertical-alignment: center;
+                                }
+                                if g.selected: VerticalLayout {
+                                    alignment: center;
+                                    spacing: 0;
+                                    IconButton { width: 18px; height: 15px; icon: @image-url("icons/chevron-up.svg"); clicked => { root.group-moved(i, -1); } }
+                                    IconButton { width: 18px; height: 15px; icon: @image-url("icons/chevron-down.svg"); clicked => { root.group-moved(i, 1); } }
+                                }
+                            }
+                            grow-ta := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.group-selected(i); }
+                            }
+                        }
+                    }
+                    Button {
+                        text: "+ 新建分组";
+                        clicked => { root.group-add(); }
+                    }
+                }
+                Rectangle { x: parent.width - 1px; width: 1px; background: #e2e8f0; }
+            }
+
+            // 右栏
+            VerticalLayout {
+                padding: 0;
+                spacing: 0;
+                horizontal-stretch: 1;
+
+                // 分组头
+                Rectangle {
+                    height: 88px;
+                    background: #ffffff;
+                    VerticalLayout {
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        padding-top: 8px;
+                        spacing: 6px;
+                        HorizontalLayout {
+                            spacing: 8px;
+                            name-edit := LineEdit {
+                                text: root.group-name;
+                                enabled: root.has-group;
+                                font-size: 14px;
+                                width: 180px;
+                                accepted(t) => { root.group-renamed(t); }
+                                edited(t) => { }
+                            }
+                            Rectangle { horizontal-stretch: 1; }
+                            Button {
+                                text: "删除分组";
+                                enabled: root.has-group;
+                                clicked => { root.group-delete(); }
+                            }
+                        }
+                        HorizontalLayout {
+                            spacing: 2px;
+                            alignment: start;
+                            for icon-i in 12: Rectangle {
+                                width: 26px;
+                                height: 26px;
+                                border-radius: 6px;
+                                background: root.group-icon-idx == icon-i ? Theme.accent-soft : (ic-ta.has-hover ? #f1f5f9 : transparent);
+                                GroupIcon {
+                                    idx: icon-i;
+                                    tint: root.group-icon-idx == icon-i ? Theme.accent : Theme.text-muted;
+                                }
+                                ic-ta := TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => { root.group-icon-set(icon-i); }
+                                }
+                            }
+                        }
+                    }
+                    Rectangle { y: parent.height - 1px; height: 1px; background: #e2e8f0; }
+                }
+
+                // 短语列表
+                ListView {
+                    vertical-stretch: 1;
+                    for p[i] in root.phrases: Rectangle {
+                        property <bool> editing: root.editing-idx == i;
+                        height: editing ? 120px : 52px;
+                        VerticalLayout {
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            padding-top: 4px;
+                            padding-bottom: 4px;
+                            Rectangle {
+                                border-radius: 8px;
+                                border-width: 1px;
+                                border-color: editing ? Theme.accent : #e2e8f0;
+                                background: #ffffff;
+                                if !editing: HorizontalLayout {
+                                    padding-left: 10px;
+                                    padding-right: 6px;
+                                    spacing: 6px;
+                                    Text {
+                                        text: p.text;
+                                        color: Theme.text-primary;
+                                        font-size: 12.5px;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                        horizontal-stretch: 1;
+                                    }
+                                    HorizontalLayout {
+                                        alignment: end;
+                                        spacing: 2px;
+                                        VerticalLayout {
+                                            alignment: center;
+                                            spacing: 0;
+                                            IconButton { width: 20px; height: 15px; icon: @image-url("icons/chevron-up.svg"); clicked => { root.phrase-moved(i, -1); } }
+                                            IconButton { width: 20px; height: 15px; icon: @image-url("icons/chevron-down.svg"); clicked => { root.phrase-moved(i, 1); } }
+                                        }
+                                        VerticalLayout {
+                                            alignment: center;
+                                            IconButton { icon: @image-url("icons/pencil.svg"); clicked => { root.editing-idx = i; } }
+                                        }
+                                        VerticalLayout {
+                                            alignment: center;
+                                            IconButton { icon: @image-url("icons/trash-2.svg"); tint: Theme.danger; clicked => { root.phrase-delete(i); } }
+                                        }
+                                    }
+                                }
+                                if editing: VerticalLayout {
+                                    padding: 6px;
+                                    spacing: 4px;
+                                    edit-box := TextEdit {
+                                        text: p.text;
+                                        font-size: 12.5px;
+                                        vertical-stretch: 1;
+                                    }
+                                    HorizontalLayout {
+                                        alignment: end;
+                                        spacing: 6px;
+                                        Button { text: "取消"; clicked => { root.editing-idx = -1; } }
+                                        Button {
+                                            text: "保存";
+                                            primary: true;
+                                            clicked => {
+                                                root.phrase-edited(i, edit-box.text);
+                                                root.editing-idx = -1;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 添加区
+                Rectangle {
+                    height: 88px;
+                    background: #ffffff;
+                    Rectangle { height: 1px; background: #e2e8f0; }
+                    HorizontalLayout {
+                        padding: 12px;
+                        spacing: 8px;
+                        new-phrase := TextEdit {
+                            horizontal-stretch: 1;
+                            font-size: 12.5px;
+                            placeholder-text: "输入新常用语,可多行…";
+                        }
+                        VerticalLayout {
+                            alignment: end;
+                            Button {
+                                text: "添加";
+                                primary: true;
+                                enabled: root.has-group;
+                                clicked => {
+                                    root.phrase-add(new-phrase.text);
+                                    new-phrase.text = "";
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ================= 外观与行为页 =================
+        if root.page == 1: ScrollView {
+            vertical-stretch: 1;
+            VerticalLayout {
+                padding: 24px;
+                spacing: 10px;
+                alignment: start;
+
+                Text { text: "桌宠形象"; font-size: 14px; font-weight: 600; color: Theme.text-primary; }
+                Text {
+                    text: "扫描内置宠物、~/.codex/pets(npx petdex 安装位置)与自定义目录,兼容 petdex 格式。";
+                    font-size: 12px;
+                    color: Theme.text-muted;
+                    wrap: word-wrap;
+                }
+
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: start;
+                    for pet[i] in root.pets: Rectangle {
+                        width: 118px;
+                        height: 132px;
+                        border-radius: 12px;
+                        border-width: 2px;
+                        border-color: pet.selected ? Theme.accent : (pet-ta.has-hover && pet.err == "" ? #cbd5e1 : #e2e8f0);
+                        background: pet.selected ? #fff7ed : #ffffff;
+                        opacity: pet.err != "" ? 0.55 : 1.0;
+                        VerticalLayout {
+                            padding: 8px;
+                            spacing: 4px;
+                            alignment: center;
+                            if pet.err == "": Image {
+                                source: pet.thumb;
+                                width: 72px;
+                                height: 78px;
+                                image-fit: contain;
+                                source-clip-x: 0;
+                                source-clip-y: 0;
+                                source-clip-width: 192;
+                                source-clip-height: 208;
+                            }
+                            Text {
+                                text: pet.name;
+                                font-size: 12px;
+                                font-weight: 600;
+                                horizontal-alignment: center;
+                                color: Theme.text-primary;
+                                overflow: elide;
+                            }
+                            if pet.err != "": Text {
+                                text: pet.err;
+                                font-size: 10.5px;
+                                color: Theme.danger;
+                                horizontal-alignment: center;
+                                wrap: word-wrap;
+                            }
+                        }
+                        pet-ta := TouchArea {
+                            enabled: pet.err == "";
+                            mouse-cursor: pointer;
+                            clicked => { root.pet-selected(i); }
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 12px;
+                    alignment: start;
+                    Button { text: "选择自定义宠物目录…"; clicked => { root.pick-dir(); } }
+                    Text { text: root.custom-dir; font-size: 12px; color: Theme.text-muted; vertical-alignment: center; }
+                }
+
+                Rectangle { height: 8px; }
+                Text { text: "面板主题"; font-size: 14px; font-weight: 600; color: Theme.text-primary; }
+                HorizontalLayout {
+                    spacing: 14px;
+                    alignment: start;
+                    CheckBox {
+                        text: "亚克力磨砂(默认)";
+                        checked: !root.solid-theme;
+                        toggled => { root.theme-toggled(!self.checked); }
+                    }
+                    CheckBox {
+                        text: "实底浅色";
+                        checked: root.solid-theme;
+                        toggled => { root.theme-toggled(self.checked); }
+                    }
+                }
+
+                Rectangle { height: 8px; }
+                Text { text: "行为"; font-size: 14px; font-weight: 600; color: Theme.text-primary; }
+                CheckBox {
+                    text: "开机自动启动";
+                    checked: root.autostart-on;
+                    toggled => { root.autostart-toggled(self.checked); }
+                }
+
+                Rectangle { height: 8px; }
+                Text { text: "数据"; font-size: 14px; font-weight: 600; color: Theme.text-primary; }
+                HorizontalLayout {
+                    spacing: 12px;
+                    alignment: start;
+                    Button { text: "导出常用语…"; clicked => { root.do-export(); } }
+                    Button { text: "导入常用语…"; clicked => { root.do-import(); } }
+                    Text { text: root.data-msg; font-size: 12px; color: Theme.text-muted; vertical-alignment: center; }
+                }
+            }
+        }
+    }
+
+    // ---- 应用内确认框 ----
+    if root.confirm-visible: Rectangle {
+        background: #0f172a73;
+        TouchArea { clicked => { root.confirm-visible = false; } }
+        Rectangle {
+            width: 320px;
+            height: 190px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: #ffffff;
+            border-radius: 14px;
+            drop-shadow-blur: 40px;
+            drop-shadow-color: #0f172a47;
+            TouchArea { } // 挡穿透
+            VerticalLayout {
+                padding: 20px;
+                spacing: 8px;
+                alignment: center;
+                HorizontalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 44px;
+                        height: 44px;
+                        border-radius: 22px;
+                        background: #fef2f2;
+                        Image {
+                            source: @image-url("icons/trash-2.svg");
+                            colorize: Theme.danger;
+                            width: 20px;
+                            height: 20px;
+                        }
+                    }
+                }
+                Text {
+                    text: root.confirm-title;
+                    font-size: 15px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    color: Theme.text-primary;
+                }
+                Text {
+                    text: root.confirm-msg;
+                    font-size: 12.5px;
+                    color: Theme.text-muted;
+                    horizontal-alignment: center;
+                    wrap: word-wrap;
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: center;
+                    Button {
+                        text: "取消";
+                        clicked => { root.confirm-visible = false; }
+                    }
+                    Button {
+                        text: "删除";
+                        primary: true;
+                        clicked => {
+                            root.confirm-visible = false;
+                            root.confirm-ok();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

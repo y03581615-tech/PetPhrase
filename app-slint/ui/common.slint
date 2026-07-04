@@ -1,0 +1,106 @@
+// PetPhrase design tokens(spec §3.4)+ 共享结构
+
+export global Theme {
+    // 实底降级 / 用户选择
+    in-out property <bool> solid: false;
+
+    out property <color> text-primary: #1e293b;
+    out property <color> text-secondary: #475569;
+    out property <color> text-muted: #64748b;
+    out property <color> text-placeholder: #94a3b8;
+
+    out property <color> accent: #f97316;
+    out property <color> accent-soft: #f9731624;
+    out property <color> danger: #dc2626;
+    out property <color> success: #16a34a;
+
+    out property <color> surface-panel: solid ? #ffffff : #ffffff8c;
+    out property <color> surface-item: solid ? #f8fafc : #ffffff99;
+    out property <color> surface-item-hover: solid ? #fff7ed : #ffffffeb;
+    out property <color> surface-input: solid ? #f1f5f9 : #ffffff80;
+    out property <color> surface-tab: solid ? #f1f5f9 : #ffffff59;
+    out property <color> surface-tab-active: solid ? #ffe8d6 : #fffffff2;
+    out property <color> surface-sheet: solid ? #ffffff : #ffffffd9;
+    out property <color> border-soft: solid ? #e2e8f0 : #ffffffa6;
+
+    out property <color> preview-bg: #1e293b;
+    out property <color> preview-text: #f1f5f9;
+}
+
+export struct PanelItemUi {
+    text: string,
+    badge: string,
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+    is-chip: bool,
+    truncated: bool,
+}
+
+export struct TabUi {
+    id: string,
+    name: string,
+    icon-idx: int,
+    active: bool,
+}
+
+export struct GroupRowUi {
+    name: string,
+    icon-idx: int,
+    count: int,
+    selected: bool,
+}
+
+export struct PhraseRowUi {
+    text: string,
+    editing: bool,
+}
+
+export struct PetCardUi {
+    name: string,
+    err: string,
+    selected: bool,
+    thumb: image,
+}
+
+// 分组图标固定集,顺序与 Rust ICON_KEYS 一致
+export component GroupIcon inherits Rectangle {
+    in property <int> idx;
+    in property <color> tint: Theme.text-secondary;
+    width: 16px;
+    height: 16px;
+    if idx == 0: Image { source: @image-url("icons/star.svg"); colorize: tint; width: 100%; height: 100%; }
+    if idx == 1: Image { source: @image-url("icons/briefcase.svg"); colorize: tint; width: 100%; height: 100%; }
+    if idx == 2: Image { source: @image-url("icons/headphones.svg"); colorize: tint; width: 100%; height: 100%; }
+    if idx == 3: Image { source: @image-url("icons/code.svg"); colorize: tint; width: 100%; height: 100%; }
+    if idx == 4: Image { source: @image-url("icons/mail.svg"); colorize: tint; width: 100%; height: 100%; }
+    if idx == 5: Image { source: @image-url("icons/message-circle.svg"); colorize: tint; width: 100%; height: 100%; }
+    if idx == 6: Image { source: @image-url("icons/smile.svg"); colorize: tint; width: 100%; height: 100%; }
+    if idx == 7: Image { source: @image-url("icons/heart.svg"); colorize: tint; width: 100%; height: 100%; }
+    if idx == 8: Image { source: @image-url("icons/fish.svg"); colorize: tint; width: 100%; height: 100%; }
+    if idx == 9: Image { source: @image-url("icons/map-pin.svg"); colorize: tint; width: 100%; height: 100%; }
+    if idx == 10: Image { source: @image-url("icons/credit-card.svg"); colorize: tint; width: 100%; height: 100%; }
+    if idx >= 11: Image { source: @image-url("icons/folder.svg"); colorize: tint; width: 100%; height: 100%; }
+}
+
+export component IconButton inherits Rectangle {
+    in property <image> icon;
+    in property <color> tint: Theme.text-muted;
+    callback clicked;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: ta.has-hover ? Theme.surface-item-hover : transparent;
+    animate background { duration: 150ms; }
+    Image {
+        source: root.icon;
+        colorize: ta.has-hover ? Theme.text-primary : root.tint;
+        width: 15px;
+        height: 15px;
+    }
+    ta := TouchArea {
+        clicked => { root.clicked(); }
+        mouse-cursor: pointer;
+    }
+}

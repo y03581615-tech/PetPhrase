@@ -1,0 +1,6 @@
+{
+  "name": "Mochi",
+  "slug": "default",
+  "kind": "slime",
+  "frame": { "width": 192, "height": 208 }
+}

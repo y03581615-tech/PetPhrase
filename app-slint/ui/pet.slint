@@ -1,0 +1,38 @@
+import { Theme } from "common.slint";
+
+export component PetWindow inherits Window {
+    in property <image> sheet;
+    in property <int> frame-col;
+    in property <int> frame-row;
+    callback pet-clicked;
+    callback drag-start;
+
+    no-frame: true;
+    always-on-top: true;
+    background: transparent;
+    width: 192px;
+    height: 208px;
+    title: "PetPhrase";
+
+    img := Image {
+        width: 192px;
+        height: 208px;
+        source: root.sheet;
+        image-fit: preserve;
+        source-clip-x: root.frame-col * 192;
+        source-clip-y: root.frame-row * 208;
+        source-clip-width: 192;
+        source-clip-height: 208;
+        animate width, height { duration: 150ms; easing: ease-out; }
+    }
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        moved => {
+            if (self.pressed && (Math.abs(self.mouse-x / 1px - self.pressed-x / 1px) > 4 || Math.abs(self.mouse-y / 1px - self.pressed-y / 1px) > 4)) {
+                root.drag-start();
+            }
+        }
+        clicked => { root.pet-clicked(); }
+    }
+}
