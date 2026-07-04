@@ -86,8 +86,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    // 软件渲染:实测常驻 ~15MB(GPU 渲染 ~78MB),雪碧图 6fps 动画绰绰有余
     slint::BackendSelector::new()
         .backend_name("winit".into())
+        .renderer_name("software".into())
         .with_winit_window_attributes_hook(|attrs| attrs.with_transparent(true))
         .select()?;
 
@@ -140,7 +142,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     refresh_pet_sprite(&app);
     refresh_panel(&app);
-    refresh_settings(&app);
+    // refresh_settings 延迟到设置窗打开时:缩略图解码占 10+MB/宠,不该常驻
+
+    // 设置窗关闭 → 释放缩略图缓存与模型
+    {
+        let a = app.clone();
+        app.settings_win.window().on_close_requested(move || {
+            a.state.borrow_mut().thumb_cache.clear();
+            a.settings_win.set_pets(ModelRc::new(VecModel::from(Vec::<PetCardUi>::new())));
+            slint::CloseRequestResponse::HideWindow
+        });
+    }
 
     app.pet.show()?;
     // 落位 + 原生属性(跳任务栏)
