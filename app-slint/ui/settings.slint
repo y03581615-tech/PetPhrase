@@ -119,8 +119,7 @@ export component SettingsWindow inherits Window {
                                 background: root.drag-group == i ? #fff7ed
                                     : g.selected ? Theme.accent-soft
                                     : grow-ta.has-hover ? #f1f5f9 : transparent;
-                                drop-shadow-blur: root.drag-group == i ? 12px : 0;
-                                drop-shadow-color: #0f172a2e;
+                                opacity: root.drag-group == i ? 0.92 : 1.0;
                                 HorizontalLayout {
                                     padding-left: 10px;
                                     padding-right: 10px;
@@ -286,11 +285,11 @@ export component SettingsWindow inherits Window {
                             y: (root.drag-phrase == i ? root.drag-phrase-dy : 0) + 4px;
                             height: parent.height - 8px;
                             border-radius: 8px;
-                            border-width: 1px;
-                            border-color: editing ? Theme.accent : #e2e8f0;
-                            background: #ffffff;
-                            drop-shadow-blur: root.drag-phrase == i ? 12px : 0;
-                            drop-shadow-color: #0f172a2e;
+                            // 拖拽视觉走轻量路线(边框+底色),软渲染下阴影重算是卡顿源
+                            border-width: root.drag-phrase == i ? 2px : 1px;
+                            border-color: editing || root.drag-phrase == i ? Theme.accent : #e2e8f0;
+                            background: root.drag-phrase == i ? #fff7ed : #ffffff;
+                            opacity: root.drag-phrase == i ? 0.92 : 1.0;
 
                             if !editing: HorizontalLayout {
                                 padding-left: 12px;
@@ -303,6 +302,37 @@ export component SettingsWindow inherits Window {
                                     vertical-alignment: center;
                                     overflow: elide;
                                     horizontal-stretch: 1;
+                                }
+                                // 拖动手柄:按住直接拖
+                                VerticalLayout {
+                                    alignment: center;
+                                    Rectangle {
+                                        width: 24px;
+                                        height: 24px;
+                                        border-radius: 6px;
+                                        background: grip-ta.has-hover || root.drag-phrase == i ? #f1f5f9 : transparent;
+                                        Image {
+                                            source: @image-url("icons/grip-vertical.svg");
+                                            colorize: Theme.text-placeholder;
+                                            width: 14px;
+                                            height: 14px;
+                                        }
+                                        grip-ta := TouchArea {
+                                            mouse-cursor: root.drag-phrase == i ? grabbing : grab;
+                                            moved => {
+                                                if (self.pressed) {
+                                                    root.drag-phrase = i;
+                                                    root.drag-phrase-dy = self.mouse-y - self.pressed-y;
+                                                }
+                                            }
+                                            pointer-event(e) => {
+                                                if (e.kind == PointerEventKind.up && root.drag-phrase == i) {
+                                                    root.phrase-dropped(i, i + Math.round((self.mouse-y - self.pressed-y) / 52px));
+                                                    root.drag-phrase = -1;
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                                 VerticalLayout {
                                     alignment: center;
@@ -343,11 +373,10 @@ export component SettingsWindow inherits Window {
                             }
 
                             if !editing: TouchArea {
-                                // 文本区拖拽排序;右侧 84px 留给按钮
-                                width: parent.width - 84px;
-                                mouse-cursor: root.drag-phrase == i ? grabbing : grab;
+                                // 行体长按拖拽(与手柄二选一均可);右侧 116px 留给手柄/编辑/删除
+                                width: Math.max(0px, parent.width - 116px);
                                 moved => {
-                                    if (self.pressed && (root.drag-phrase == i || Math.abs(self.mouse-y / 1px - self.pressed-y / 1px) > 8)) {
+                                    if (self.pressed && (root.drag-phrase == i || Math.abs(self.mouse-y / 1px - self.pressed-y / 1px) > 10)) {
                                         root.drag-phrase = i;
                                         root.drag-phrase-dy = self.mouse-y - self.pressed-y;
                                     }

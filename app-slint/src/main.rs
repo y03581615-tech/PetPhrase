@@ -33,6 +33,11 @@ fn icon_idx(icon: &Option<String>) -> i32 {
         .unwrap_or(11) as i32
 }
 
+thread_local! {
+    /// 下一个创建的原生窗口不激活(仅预览窗首次 show 时置位)
+    static NO_ACTIVATE_NEXT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 fn data_dir() -> PathBuf {
     PathBuf::from(std::env::var("APPDATA").expect("APPDATA 环境变量缺失")).join("PetPhrase")
 }
@@ -90,7 +95,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     slint::BackendSelector::new()
         .backend_name("winit".into())
         .renderer_name("software".into())
-        .with_winit_window_attributes_hook(|attrs| attrs.with_transparent(true))
+        .with_winit_window_attributes_hook(|attrs| {
+            let attrs = attrs.with_transparent(true);
+            // 预览窗创建时标记:初始即不激活,防抢面板焦点
+            if NO_ACTIVATE_NEXT.with(|f| f.get()) {
+                attrs.with_active(false)
+            } else {
+                attrs
+            }
+        })
         .select()?;
 
     let dir = data_dir();
@@ -508,15 +521,41 @@ fn show_preview(app: &Rc<App>, text: &str, item_y: f32) {
     app.preview
         .window()
         .set_position(slint::PhysicalPosition::new(x as i32, y as i32));
-    let _ = app.preview.show();
 
-    if !app.state.borrow().preview_native_ready {
+    let first_show = !app.state.borrow().preview_native_ready;
+    if first_show {
+        NO_ACTIVATE_NEXT.with(|f| f.set(true));
+    }
+    let _ = app.preview.show();
+    if first_show {
+        NO_ACTIVATE_NEXT.with(|f| f.set(false));
         app.preview.window().with_winit_window(|w: &winit::window::Window| {
             use winit::platform::windows::WindowExtWindows;
             w.set_skip_taskbar(true);
             let _ = w.set_cursor_hittest(false);
+            set_no_activate(w);
         });
         app.state.borrow_mut().preview_native_ready = true;
+    }
+}
+
+/// WS_EX_NOACTIVATE + WS_EX_TOOLWINDOW:预览窗永不获得焦点,
+/// 根治「悬停预览弹出 → 面板失焦自隐」。
+fn set_no_activate(w: &winit::window::Window) {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    let Ok(handle) = w.window_handle() else { return };
+    let RawWindowHandle::Win32(h) = handle.as_raw() else { return };
+    unsafe {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            GetWindowLongPtrW, SetWindowLongPtrW, GWL_EXSTYLE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+        };
+        let hwnd = h.hwnd.get() as windows_sys::Win32::Foundation::HWND;
+        let ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        SetWindowLongPtrW(
+            hwnd,
+            GWL_EXSTYLE,
+            ex | WS_EX_NOACTIVATE as isize | WS_EX_TOOLWINDOW as isize,
+        );
     }
 }
 

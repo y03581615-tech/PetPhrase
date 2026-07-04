@@ -4009,6 +4009,7 @@ dependencies = [
  "arboard",
  "auto-launch",
  "image",
+ "raw-window-handle",
  "rfd",
  "serde",
  "serde_json",
@@ -4018,6 +4019,7 @@ dependencies = [
  "tempfile",
  "tray-icon",
  "window-vibrancy",
+ "windows-sys 0.59.0",
  "winresource",
 ]
 
