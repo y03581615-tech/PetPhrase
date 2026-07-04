@@ -23,7 +23,6 @@ import { isShort, panelPosition, searchPhrases } from "./logic";
 import "./panel.css";
 
 const HOVER_PREVIEW_DELAY_MS = 400;
-const COPY_FLASH_MS = 300;
 const HIDE_AFTER_COPY_MS = 200;
 const GRID_HIDE_THRESHOLD = 4;
 
@@ -189,24 +188,23 @@ function selectGroup(id: string): void {
 }
 
 async function copyPhrase(el: HTMLElement, text: string): Promise<void> {
-  try {
-    await copyText(text);
-  } catch {
-    el.classList.add("copy-failed");
-    setTimeout(() => el.classList.remove("copy-failed"), 2000);
-    return;
-  }
+  // 乐观反馈:视觉即时,剪贴板写入在后台完成;失败再回滚(本地写入极少失败)
   el.classList.add("copied");
   const mark = document.createElement("span");
   mark.className = "copied-mark";
   mark.innerHTML = ICON.check;
   el.appendChild(mark);
-  void emit(EVT.phraseCopied, null);
-  setTimeout(() => {
+  const hideTimer = setTimeout(() => void hidePanel(), HIDE_AFTER_COPY_MS);
+  try {
+    await copyText(text);
+    void emit(EVT.phraseCopied, null);
+  } catch {
+    clearTimeout(hideTimer);
     el.classList.remove("copied");
     mark.remove();
-  }, COPY_FLASH_MS);
-  setTimeout(() => void hidePanel(), HIDE_AFTER_COPY_MS);
+    el.classList.add("copy-failed");
+    setTimeout(() => el.classList.remove("copy-failed"), 2000);
+  }
 }
 
 function bindHoverPreview(el: HTMLElement, textEl: HTMLElement, fullText: string): void {
@@ -244,9 +242,9 @@ async function showPreview(el: HTMLElement, text: string): Promise<void> {
 
 async function hidePanel(): Promise<void> {
   if (hoverTimer) clearTimeout(hoverTimer);
-  await destroyPreviewWindow();
   gridSheet.hidden = true;
-  await win.hide();
+  await win.hide(); // 视觉先走
+  void destroyPreviewWindow(); // 进程清理放后台,不阻塞帧
 }
 
 async function togglePanel(): Promise<void> {
