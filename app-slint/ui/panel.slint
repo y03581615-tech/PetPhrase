@@ -170,27 +170,37 @@ export component PanelWindow inherits Window {
                                 : i == root.failed-idx ? Theme.danger
                                 : item-ta.has-hover ? Theme.accent : Theme.border-soft;
                             animate background { duration: 150ms; }
+                            // 文本显式定高 + clip:多行/超长原文的实际渲染高度可超 Rust 估算,
+                            // 交给 layout 协商会按全文最小高度溢出压到下一条,必须硬约束
+                            clip: true;
 
-                            VerticalLayout {
-                                padding-left: item.is-chip ? 12px : 10px;
-                                padding-right: item.is-chip ? 12px : 10px;
-                                padding-top: item.is-chip ? 0 : 8px;
-                                padding-bottom: item.is-chip ? 0 : 8px;
-                                alignment: item.is-chip ? center : start;
-                                spacing: 2px;
-                                Text {
-                                    text: item.text;
-                                    color: Theme.text-primary;
-                                    font-size: 12.5px;
-                                    wrap: item.is-chip ? no-wrap : word-wrap;
-                                    overflow: elide;
-                                    vertical-stretch: 1;
-                                }
-                                if item.badge != "": Text {
-                                    text: item.badge;
-                                    color: Theme.text-muted;
-                                    font-size: 10.5px;
-                                }
+                            if item.is-chip: Text {
+                                width: parent.width;
+                                height: parent.height;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                                text: item.text;
+                                color: Theme.text-primary;
+                                font-size: 12.5px;
+                                overflow: elide;
+                            }
+                            if !item.is-chip: Text {
+                                x: 10px;
+                                y: 10px;
+                                width: parent.width - 20px;
+                                height: parent.height - 20px - (item.badge == "" ? 0px : 16px);
+                                text: item.text;
+                                color: Theme.text-primary;
+                                font-size: 12.5px;
+                                wrap: word-wrap;
+                                overflow: elide;
+                            }
+                            if item.badge != "" && !item.is-chip: Text {
+                                x: 10px;
+                                y: parent.height - 24px;
+                                text: item.badge;
+                                color: Theme.text-muted;
+                                font-size: 10.5px;
                             }
 
                             if i == root.copied-idx: Image {
