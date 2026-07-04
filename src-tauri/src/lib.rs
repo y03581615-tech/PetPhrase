@@ -120,6 +120,17 @@ pub fn run() {
             storage::backup_phrases(&data_dir());
             setup_tray(app)?;
 
+            // 设置窗点 X = 隐藏而非销毁,保证可反复打开
+            if let Some(win) = app.get_webview_window("settings") {
+                let w = win.clone();
+                win.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = w.hide();
+                    }
+                });
+            }
+
             if let Some(panel) = app.get_webview_window("panel") {
                 // acrylic 失败 → 通知前端退化实底主题
                 if window_vibrancy::apply_acrylic(&panel, Some((255, 255, 255, 140))).is_err() {
