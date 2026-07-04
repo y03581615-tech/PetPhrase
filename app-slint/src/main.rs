@@ -72,7 +72,6 @@ struct App {
     panel: PanelWindow,
     settings_win: SettingsWindow,
     state: RefCell<State>,
-    hover_timer: slint::Timer,
     hide_timer: slint::Timer,
     move_timer: slint::Timer,
 }
@@ -120,7 +119,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             panel_native_ready: false,
             panel_got_focus: false,
         }),
-        hover_timer: slint::Timer::default(),
         hide_timer: slint::Timer::default(),
         move_timer: slint::Timer::default(),
     });
@@ -286,7 +284,6 @@ fn refresh_panel(app: &Rc<App>) {
             w: it.w,
             h: it.h,
             is_chip: it.is_chip,
-            truncated: it.truncated,
         })
         .collect();
 
@@ -319,44 +316,6 @@ fn wire_panel(app: &Rc<App>) {
 
     let a = app.clone();
     app.panel.on_escape_pressed(move || hide_panel(&a));
-
-    // 悬停 400ms → 面板内全文预览浮层
-    let a = app.clone();
-    app.panel.on_item_hovered(move |i| {
-        let text = match a.state.borrow().items.get(i as usize) {
-            Some(it) if it.truncated => it.text.clone(),
-            _ => return,
-        };
-        let a2 = a.clone();
-        a.hover_timer.start(
-            slint::TimerMode::SingleShot,
-            Duration::from_millis(400),
-            move || {
-                a2.panel.set_preview_text(text.clone().into());
-                a2.panel.set_preview_visible(true);
-            },
-        );
-    });
-
-    let a = app.clone();
-    app.panel.on_item_unhovered(move || a.hover_timer.stop());
-
-    // 预览浮层单击 = 复制全文并收面板
-    let a = app.clone();
-    app.panel.on_preview_clicked(move || {
-        let text = a.panel.get_preview_text().to_string();
-        let ok = {
-            let mut st = a.state.borrow_mut();
-            match st.clipboard.as_mut() {
-                Some(cb) => cb.set_text(text).is_ok(),
-                None => false,
-            }
-        };
-        if ok {
-            a.state.borrow_mut().animator.play(PetState::Wave, true);
-            hide_panel(&a);
-        }
-    });
 }
 
 fn select_group(app: &Rc<App>, idx: usize) {
@@ -488,9 +447,7 @@ fn dbg_log(msg: &str) {
 }
 
 fn hide_panel(app: &Rc<App>) {
-    app.hover_timer.stop();
     app.panel.set_grid_open(false);
-    app.panel.set_preview_visible(false);
     let _ = app.panel.window().hide();
 }
 

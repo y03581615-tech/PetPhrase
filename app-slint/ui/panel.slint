@@ -14,14 +14,7 @@ export component PanelWindow inherits Window {
     callback item-clicked(int);
     callback gear-clicked;
     callback search-changed(string);
-    callback item-hovered(int);
-    callback item-unhovered;
-    callback preview-clicked;
     callback escape-pressed;
-
-    // 面板内全文预览浮层
-    in-out property <bool> preview-visible: false;
-    in property <string> preview-text;
 
     no-frame: true;
     always-on-top: true;
@@ -40,9 +33,7 @@ export component PanelWindow inherits Window {
     FocusScope {
         key-pressed(event) => {
             if (event.text == Key.Escape) {
-                if (root.preview-visible) {
-                    root.preview-visible = false;
-                } else if (root.grid-open) {
+                if (root.grid-open) {
                     root.grid-open = false;
                 } else {
                     root.escape-pressed();
@@ -214,13 +205,6 @@ export component PanelWindow inherits Window {
                             item-ta := TouchArea {
                                 mouse-cursor: pointer;
                                 clicked => { root.item-clicked(i); }
-                                changed has-hover => {
-                                    if (self.has-hover && item.truncated) {
-                                        root.item-hovered(i);
-                                    } else if (!self.has-hover) {
-                                        root.item-unhovered();
-                                    }
-                                }
                             }
                         }
 
@@ -232,56 +216,6 @@ export component PanelWindow inherits Window {
                             color: Theme.text-muted;
                             font-size: 12px;
                         }
-                    }
-                }
-            }
-        }
-
-        // ---- 全文预览浮层(面板内,浅色大卡,可滚动,点击复制) ----
-        if root.preview-visible: Rectangle {
-            x: 10px;
-            y: 76px;
-            width: parent.width - 20px;
-            height: parent.height - 86px;
-            z: 20;
-            border-radius: 12px;
-            background: #ffffff;
-            border-width: 1.5px;
-            border-color: #fdba74;
-            drop-shadow-blur: 20px;
-            drop-shadow-color: #0f172a30;
-            clip: true;
-
-            pv-ta := TouchArea {
-                mouse-cursor: pointer;
-                clicked => { root.preview-clicked(); }
-                changed has-hover => {
-                    if (!self.has-hover) { root.preview-visible = false; }
-                }
-            }
-
-            VerticalLayout {
-                padding: 0;
-                Flickable {
-                    vertical-stretch: 1;
-                    viewport-height: pv-text.preferred-height + 28px;
-                    pv-text := Text {
-                        x: 14px;
-                        y: 12px;
-                        width: parent.width - 28px;
-                        text: root.preview-text;
-                        color: Theme.text-primary;
-                        font-size: 13px;
-                        wrap: word-wrap;
-                    }
-                }
-                Rectangle {
-                    height: 30px;
-                    background: #fff7ed;
-                    Text {
-                        text: "单击复制 · 移开关闭 · 滚轮查看全文";
-                        color: #b45309;
-                        font-size: 11px;
                     }
                 }
             }

@@ -39,8 +39,6 @@ pub struct LaidItem {
     pub w: f32,
     pub h: f32,
     pub is_chip: bool,
-    /// 卡片文本是否超过 2 行(悬停出全文预览)
-    pub truncated: bool,
 }
 
 struct Ctx {
@@ -82,7 +80,6 @@ impl Ctx {
             w,
             h: CHIP_H,
             is_chip: true,
-            truncated: false,
         });
         self.cursor_x += w + GAP;
     }
@@ -93,7 +90,6 @@ impl Ctx {
         let text_w = estimate_text_width(text, FONT_PX);
         let lines_est = (text_w / inner_w).ceil().max(1.0) + text.matches('\n').count() as f32;
         let lines = lines_est.min(2.0);
-        let truncated = lines_est > 2.0;
         let badge_h = if badge.is_empty() { 0.0 } else { BADGE_H };
         let h = CARD_PAD * 2.0 + lines * CARD_LINE_H + badge_h;
         self.items.push(LaidItem {
@@ -106,7 +102,6 @@ impl Ctx {
             w: self.avail,
             h,
             is_chip: false,
-            truncated,
         });
         self.cursor_y += h + GAP;
     }
@@ -224,7 +219,6 @@ mod tests {
         assert_eq!(items[2].x, 0.0);
         assert!(items[2].y > items[0].y);
         assert_eq!(items[2].w, 280.0);
-        assert!(items[2].truncated);
         // 卡片后的 chip 另起一行
         assert!(items[3].is_chip);
         assert!(items[3].y > items[2].y);
