@@ -1,5 +1,5 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { confirm, open, save } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import {
   exportPhrases,
@@ -20,6 +20,45 @@ let activeGroupId: string | null = null;
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 const uid = (): string => crypto.randomUUID();
+
+/* ---------- 应用内确认框(替代原生弹窗,风格与整体一致) ---------- */
+
+function confirmDialog(title: string, message: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="modal-icon">${ICON.trash}</div>
+        <div class="modal-title"></div>
+        <div class="modal-msg"></div>
+        <div class="modal-actions">
+          <button class="btn subtle" data-act="cancel">取消</button>
+          <button class="btn danger" data-act="ok">删除</button>
+        </div>
+      </div>`;
+    (overlay.querySelector(".modal-title") as HTMLElement).textContent = title;
+    (overlay.querySelector(".modal-msg") as HTMLElement).textContent = message;
+
+    const done = (ok: boolean) => {
+      overlay.remove();
+      document.removeEventListener("keydown", onKey);
+      resolve(ok);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") done(false);
+      if (e.key === "Enter") done(true);
+    };
+    overlay.onclick = (e) => {
+      if (e.target === overlay) done(false);
+    };
+    (overlay.querySelector('[data-act="cancel"]') as HTMLButtonElement).onclick = () => done(false);
+    (overlay.querySelector('[data-act="ok"]') as HTMLButtonElement).onclick = () => done(true);
+    document.addEventListener("keydown", onKey);
+    document.body.appendChild(overlay);
+    (overlay.querySelector('[data-act="cancel"]') as HTMLButtonElement).focus();
+  });
+}
 
 /* ---------- 持久化 ---------- */
 
@@ -155,10 +194,10 @@ function renderGroupHeader(): void {
   del.className = "btn subtle";
   del.innerHTML = `${ICON.trash} 删除分组`;
   del.onclick = async () => {
-    const ok = await confirm(`删除分组「${g.name}」及其 ${g.phrases.length} 条常用语?`, {
-      title: "PetPhrase",
-      kind: "warning",
-    });
+    const ok = await confirmDialog(
+      "删除分组",
+      `将删除「${g.name}」及其中 ${g.phrases.length} 条常用语,此操作不可撤销。`,
+    );
     if (!ok) return;
     data.groups = data.groups.filter((x) => x.id !== g.id);
     activeGroupId = data.groups[0]?.id ?? null;
