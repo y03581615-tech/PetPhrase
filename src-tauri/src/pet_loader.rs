@@ -24,7 +24,12 @@ fn load_pet(dir: &Path) -> Option<PetInfo> {
     match fs::read_to_string(dir.join("pet.json")) {
         Ok(text) => match serde_json::from_str::<serde_json::Value>(&text) {
             Ok(meta) => {
-                if let Some(n) = meta.get("name").and_then(|v| v.as_str()) {
+                // 兼容两种字段:官方素材用 displayName,规范文档用 name
+                if let Some(n) = meta
+                    .get("displayName")
+                    .or_else(|| meta.get("name"))
+                    .and_then(|v| v.as_str())
+                {
                     name = n.to_string();
                 }
             }
@@ -80,6 +85,19 @@ mod tests {
         if let Some(f) = sheet {
             fs::write(dir.join(f), b"fake-image").unwrap();
         }
+    }
+
+    #[test]
+    fn display_name_takes_precedence() {
+        let root = tempdir().unwrap();
+        make_pet(
+            root.path(),
+            "kun-like",
+            Some(r#"{"id":"Kun-like","displayName":"Kun Like","name":"ignored"}"#),
+            Some("spritesheet.webp"),
+        );
+        let pets = scan_pets(&[root.path()]);
+        assert_eq!(pets[0].name, "Kun Like");
     }
 
     #[test]
