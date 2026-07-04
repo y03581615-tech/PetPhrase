@@ -1,34 +1,91 @@
-# PetPhrase
+<div align="center">
 
-一只桌宠 + 你的常用语面板。桌宠([petdex](https://petdex.dev/) 格式)静坐在桌面上,点它弹出常用语面板,点一条短语立即复制到剪贴板——客服回复、报销话术、代码片段,一次点击不打断手头工作。
+# 🐾 PetPhrase
 
-**Rust + [Slint](https://slint.dev/) 单进程原生应用**:安装包 5.6MB,常驻内存 ~23MB,冷启动 ~0.3s。
+**一只桌宠 + 你的常用语面板**
 
-> **平台支持:仅 Windows 10/11 x64。** 暂不支持 macOS 与 Linux。
+桌宠静坐桌面,点它弹出常用语面板,点一条短语立即复制到剪贴板。<br>
+客服回复、报销话术、代码片段——一次点击,不打断手头工作。
 
-## 功能
+[![Release](https://img.shields.io/github/v/release/wangcheng6-ai/PetPhrase?color=f97316&label=release)](https://github.com/wangcheng6-ai/PetPhrase/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/wangcheng6-ai/PetPhrase/total?color=blue&label=downloads)](https://github.com/wangcheng6-ai/PetPhrase/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078d6?logo=windows)](https://github.com/wangcheng6-ai/PetPhrase/releases/latest)
+[![Built with Slint](https://img.shields.io/badge/built%20with-Rust%20%2B%20Slint-orange?logo=rust)](https://slint.dev/)
+[![Last Commit](https://img.shields.io/github/last-commit/wangcheng6-ai/PetPhrase?color=green)](https://github.com/wangcheng6-ai/PetPhrase/commits/main)
+[![License](https://img.shields.io/github/license/wangcheng6-ai/PetPhrase?color=success)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/wangcheng6-ai/PetPhrase?style=social)](https://github.com/wangcheng6-ai/PetPhrase/stargazers)
+
+**单进程原生应用:安装包 5.6MB · 常驻内存 ~23MB · 冷启动 ~0.3s**
+
+</div>
+
+---
+
+## ✨ 它长什么样
+
+| 常用语面板(亚克力磨砂) | 挑选你喜欢的桌宠 |
+|:---:|:---:|
+| ![常用语面板](screenshots/panel.png) | ![桌宠选择](screenshots/settings-pets.png) |
+
+<div align="center">
+
+**管理分组与常用语**
+
+<img src="screenshots/settings-phrases.png" width="640" alt="常用语管理">
+
+</div>
+
+## 🚀 快速上手
+
+1. 从 [Releases](https://github.com/wangcheng6-ai/PetPhrase/releases/latest) 下载 `PetPhrase_x.y.z_x64-setup.exe`,双击安装(装到用户目录,**无需管理员权限**)
+2. 桌面右下角出现一只桌宠——**点击它**,弹出常用语面板
+3. 点右上角 ⚙ 打开设置,建分组、加常用语(支持多行文本)
+4. 之后每次点桌宠 → 点短语 → 已复制 ✓,直接去粘贴
+
+## 🎯 功能
 
 - **桌宠**:透明置顶、雪碧图待机动画,点击招手,可拖拽并记住位置
 - **常用语面板**:贴宠弹出;分组胶囊 Tab + 全组宫格;短句排成气泡流、长句卡片;搜索跨组过滤;点击复制 + ✓ 反馈 + 自动收起;失焦即隐
-- **设置**:分组/短语增删改、长按拖动排序、12 个分组图标、换宠、亚克力/实底主题、开机自启、导入导出 JSON
-- **petdex 生态兼容**:自动扫描 `~/.codex/pets/`——用 [petdex](https://github.com/crafter-station/petdex) 安装的桌宠即插即用:
+- **分组管理**:增删改、长按拖动排序、12 个分组图标
+- **主题**:亚克力磨砂 / 实底浅色两种面板主题
+- **数据**:开机自启可选;JSON 导入导出;数据原子写入 + 启动备份自动恢复,卸载重装不丢
+- **标准安装/卸载**:NSIS 安装包,含 `uninstall.exe` 与「应用和功能」卸载入口,卸载时可选保留数据
 
-  ```bash
-  npx petdex@latest install <pet-name>
-  ```
+## 🐱 换一只喜欢的桌宠
 
-  也支持在设置里指定自定义目录,`pet.json + spritesheet.webp/png` 即为一只宠
-- **标准安装/卸载**:NSIS 安装包(装到 `%LOCALAPPDATA%\Programs\PetPhrase`,无需管理员权限),含 `uninstall.exe` 与「应用和功能」卸载入口,卸载时可选保留数据
+PetPhrase 兼容 [petdex](https://petdex.dev/) 桌宠格式——那个在 X 上火过的 Codex 桌宠生态。去 [petdex.dev](https://petdex.dev/) 逛一圈,挑一只喜欢的,一行命令装好:
 
-## 安装
+```bash
+npx petdex@latest install <pet-name>
+# 例如:npx petdex@latest install yinyue-2
+```
 
-从 [Releases](../../releases) 下载 `PetPhrase_x.y.z_x64-setup.exe`,双击安装。
+然后打开 PetPhrase 设置 →「外观与行为」,新桌宠已经出现在列表里,点选即换。
 
-数据存放于 `%APPDATA%\PetPhrase\`(原子写入 + 启动备份自动恢复),卸载重装不丢数据。
+也支持完全自定义:任意目录放上 `pet.json + spritesheet.webp/png`(参考 [petdex 格式](https://github.com/crafter-station/petdex)),在设置里指定该目录即可。
 
-## 从源码构建
+## 📋 使用示例
 
-需要 Rust stable 工具链(MSVC)。
+给客服 / 运营 / 开发同学的分组灵感:
+
+| 分组 | 示例短语 |
+|------|---------|
+| 💬 客服 | 「您好,感谢您的反馈,我们已经记录了这个问题,会尽快给您答复」 |
+| 📧 邮件 | 「收到,马上处理」「好的,没问题」 |
+| 💻 代码 | `git rebase -i HEAD~3`、常用正则、SQL 片段 |
+| 💳 账号 | 发票抬头、收货地址、公司税号 |
+
+短句(≤10 字)自动排成紧凑气泡流,长文本独占卡片,一眼扫到。
+
+## 🖥️ 平台支持
+
+**目前仅支持 Windows 10/11 x64**,暂无 macOS / Linux 版本。
+
+好消息是:UI 框架 [Slint](https://slint.dev/) 本身跨平台,核心逻辑(存储/布局/动画)与平台无关,移植的主要工作量在窗口特效(亚克力/点击穿透)、托盘、开机自启的平台适配。**欢迎 macOS / Linux 用户提 PR!** 提前开 [Issue](https://github.com/wangcheng6-ai/PetPhrase/issues) 讨论方案更好。
+
+## 🔧 从源码构建
+
+需要 Rust stable 工具链(Windows MSVC)。
 
 ```bash
 cd app-slint
@@ -38,12 +95,20 @@ cargo build --release     # 产出 target/release/PetPhrase.exe
 makensis installer.nsi    # 产出 target/PetPhrase_0.2.0_x64-setup.exe
 ```
 
-## 致谢
+数据文件位于 `%APPDATA%\PetPhrase\{phrases.json, settings.json}`。
+
+## 🤝 贡献
+
+- 🐛 **报 Bug / 提需求**:[Issues](https://github.com/wangcheng6-ai/PetPhrase/issues) 欢迎任何反馈,中文英文都行
+- 🔀 **提 PR**:改动前跑一遍 `cargo test`;涉及 UI 手感的改动建议附截图/录屏
+- 🍎🐧 **平台移植**:macOS / Linux 适配是最受欢迎的贡献方向
+- ⭐ **觉得好用?** 点个 Star 是最直接的支持
+
+## 🙏 致谢
 
 - 桌宠格式与生态来自 [petdex](https://petdex.dev/)([crafter-station/petdex](https://github.com/crafter-station/petdex))
-- UI 框架 [Slint](https://slint.dev/)
-- 图标 [Lucide](https://lucide.dev/)
+- UI 框架 [Slint](https://slint.dev/) · 图标 [Lucide](https://lucide.dev/)
 
-## 许可
+## 📄 许可
 
-[MIT](LICENSE)
+[MIT](LICENSE) © 2026 wangcheng6-ai
