@@ -38,6 +38,9 @@ thread_local! {
     static NO_ACTIVATE_NEXT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
+/// 预览窗「隐藏」= 挪到屏幕外,避免 show/hide 引发的激活/焦点事件
+const OFFSCREEN: i32 = -10000;
+
 fn data_dir() -> PathBuf {
     PathBuf::from(std::env::var("APPDATA").expect("APPDATA 环境变量缺失")).join("PetPhrase")
 }
@@ -69,7 +72,6 @@ struct State {
     thumb_cache: HashMap<String, slint::Image>,
     preview_right: bool,
     panel_native_ready: bool,
-    preview_native_ready: bool,
     /// show 后是否真正拿到过焦点 —— 防初始 Focused(false) 误隐藏
     panel_got_focus: bool,
 }
@@ -136,7 +138,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             thumb_cache: HashMap::new(),
             preview_right: true,
             panel_native_ready: false,
-            preview_native_ready: false,
             panel_got_focus: false,
         }),
         hover_timer: slint::Timer::default(),
@@ -179,6 +180,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         use winit::platform::windows::WindowExtWindows;
         w.set_skip_taskbar(true);
     });
+
+    // 预览窗:启动即创建(不激活),常驻屏幕外;此后只挪位置、永不 show/hide,
+    // 彻底杜绝「预览弹出抢焦点 → 面板失焦自隐」
+    NO_ACTIVATE_NEXT.with(|f| f.set(true));
+    app.preview
+        .window()
+        .set_position(slint::PhysicalPosition::new(OFFSCREEN, OFFSCREEN));
+    let _ = app.preview.show();
+    NO_ACTIVATE_NEXT.with(|f| f.set(false));
+    app.preview.window().with_winit_window(|w: &winit::window::Window| {
+        use winit::platform::windows::WindowExtWindows;
+        w.set_skip_taskbar(true);
+        let _ = w.set_cursor_hittest(false);
+        set_no_activate(w);
+    });
+    app.preview
+        .window()
+        .set_position(slint::PhysicalPosition::new(OFFSCREEN, OFFSCREEN));
 
     slint::run_event_loop_until_quit()?;
     Ok(())
@@ -358,7 +377,7 @@ fn wire_panel(app: &Rc<App>) {
     let a = app.clone();
     app.panel.on_item_unhovered(move || {
         a.hover_timer.stop();
-        a.preview.window().hide().ok();
+        park_preview(&a);
     });
 }
 
@@ -495,7 +514,7 @@ fn hide_panel(app: &Rc<App>) {
     app.hover_timer.stop();
     app.panel.set_grid_open(false);
     let _ = app.panel.window().hide();
-    let _ = app.preview.window().hide();
+    park_preview(app);
 }
 
 /* ================= 预览窗 ================= */
@@ -521,22 +540,12 @@ fn show_preview(app: &Rc<App>, text: &str, item_y: f32) {
     app.preview
         .window()
         .set_position(slint::PhysicalPosition::new(x as i32, y as i32));
+}
 
-    let first_show = !app.state.borrow().preview_native_ready;
-    if first_show {
-        NO_ACTIVATE_NEXT.with(|f| f.set(true));
-    }
-    let _ = app.preview.show();
-    if first_show {
-        NO_ACTIVATE_NEXT.with(|f| f.set(false));
-        app.preview.window().with_winit_window(|w: &winit::window::Window| {
-            use winit::platform::windows::WindowExtWindows;
-            w.set_skip_taskbar(true);
-            let _ = w.set_cursor_hittest(false);
-            set_no_activate(w);
-        });
-        app.state.borrow_mut().preview_native_ready = true;
-    }
+fn park_preview(app: &Rc<App>) {
+    app.preview
+        .window()
+        .set_position(slint::PhysicalPosition::new(OFFSCREEN, OFFSCREEN));
 }
 
 /// WS_EX_NOACTIVATE + WS_EX_TOOLWINDOW:预览窗永不获得焦点,

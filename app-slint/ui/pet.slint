@@ -26,13 +26,23 @@ export component PetWindow inherits Window {
         animate width, height { duration: 150ms; easing: ease-out; }
     }
 
+    // 拖拽后吞掉本次 click:系统拖窗接管后松手仍会触发 clicked
+    property <bool> dragged: false;
+
     ta := TouchArea {
         mouse-cursor: pointer;
         moved => {
             if (self.pressed && (Math.abs(self.mouse-x / 1px - self.pressed-x / 1px) > 4 || Math.abs(self.mouse-y / 1px - self.pressed-y / 1px) > 4)) {
+                root.dragged = true;
                 root.drag-start();
             }
         }
-        clicked => { root.pet-clicked(); }
+        clicked => {
+            if (root.dragged) {
+                root.dragged = false;
+            } else {
+                root.pet-clicked();
+            }
+        }
     }
 }
