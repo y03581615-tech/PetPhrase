@@ -14,7 +14,7 @@ use pet_loader::PetInfo;
 use slint::winit_030::{winit, WinitWindowAccessor};
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::Duration;
@@ -34,7 +34,39 @@ fn icon_idx(icon: &Option<String>) -> i32 {
 }
 
 fn data_dir() -> PathBuf {
-    PathBuf::from(std::env::var("APPDATA").expect("APPDATA 环境变量缺失")).join("PetPhrase")
+    static DIR: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    DIR.get_or_init(|| {
+        let base = std::env::var("APPDATA").unwrap_or_else(|_| {
+            rfd::MessageDialog::new()
+                .set_title("PetPhrase 无法启动")
+                .set_description("找不到数据目录:APPDATA 环境变量缺失。")
+                .set_level(rfd::MessageLevel::Error)
+                .show();
+            std::process::exit(1);
+        });
+        PathBuf::from(base).join("PetPhrase")
+    })
+    .clone()
+}
+
+/// 保存短语数据;失败时提示到设置窗「数据」区(而非静默吞掉)
+fn persist_data(app: &Rc<App>) {
+    let st = app.state.borrow();
+    let result = storage::save_phrases(&data_dir(), &st.data);
+    drop(st);
+    if let Err(e) = result {
+        app.settings_win.set_data_msg(format!("⚠ 常用语保存失败:{e}").into());
+    }
+}
+
+/// 保存设置;失败提示同上
+fn persist_settings(app: &Rc<App>) {
+    let st = app.state.borrow();
+    let result = storage::save_settings(&data_dir(), &st.settings);
+    drop(st);
+    if let Err(e) = result {
+        app.settings_win.set_data_msg(format!("⚠ 设置保存失败:{e}").into());
+    }
 }
 
 /// 三档桌宠缩放,索引对应设置里的 小/中/大
@@ -104,6 +136,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let dir = data_dir();
     storage::backup_phrases(&dir);
+    storage::backup_settings(&dir);
     let data = storage::load_phrases(&dir);
     let settings = storage::load_settings(&dir);
     let roots = pet_roots(&settings.custom_pet_dir);
@@ -210,9 +243,8 @@ fn wire_pet(app: &Rc<App>) {
                 slint::TimerMode::SingleShot,
                 Duration::from_millis(500),
                 move || {
-                    let mut st = a2.state.borrow_mut();
-                    st.settings.pet_pos = Some((x, y));
-                    let _ = storage::save_settings(&data_dir(), &st.settings);
+                    a2.state.borrow_mut().settings.pet_pos = Some((x, y));
+                    persist_settings(&a2);
                 },
             );
         }
@@ -354,8 +386,8 @@ fn select_group(app: &Rc<App>, idx: usize) {
         }
         st.active_group = idx;
         st.settings.last_group = Some(st.data.groups[idx].id.clone());
-        let _ = storage::save_settings(&data_dir(), &st.settings);
     }
+    persist_settings(app);
     app.panel.set_search_text("".into());
     refresh_panel(app);
     refresh_settings(app);
@@ -495,10 +527,12 @@ fn refresh_pets(app: &Rc<App>) {
     let roots = pet_roots(&st.settings.custom_pet_dir);
     let refs: Vec<&std::path::Path> = roots.iter().map(|p| p.as_path()).collect();
     st.pets = pet_loader::scan_pets(&refs);
+    // 裁掉已不在列表里的缩略图,防止反复切换目录时缓存只增不减
+    let keep: HashSet<String> = st.pets.iter().map(|p| p.spritesheet.clone()).collect();
+    st.thumb_cache.retain(|k, _| keep.contains(k));
 }
 
 fn refresh_settings(app: &Rc<App>) {
-    let editing = app.settings_win.get_editing_idx();
     let mut st = app.state.borrow_mut();
 
     let groups: Vec<GroupRowUi> = st
@@ -522,11 +556,9 @@ fn refresh_settings(app: &Rc<App>) {
             icon_idx(&g.icon),
             g.phrases
                 .iter()
-                .enumerate()
-                .map(|(i, p)| PhraseRowUi {
+                .map(|p| PhraseRowUi {
                     text: p.text.clone().into(),
                     display: p.text.replace('\n', " ").into(),
-                    editing: i as i32 == editing,
                 })
                 .collect(),
         ),
@@ -561,6 +593,7 @@ fn refresh_settings(app: &Rc<App>) {
     drop(st);
 
     app.settings_win.set_pet_size_idx(size_idx);
+    app.settings_win.set_renaming(false); // 任何数据刷新都退出分组名编辑态
 
     app.settings_win.set_groups(ModelRc::new(VecModel::from(groups)));
     app.settings_win.set_phrases(ModelRc::new(VecModel::from(phrases)));
@@ -569,11 +602,6 @@ fn refresh_settings(app: &Rc<App>) {
     app.settings_win.set_group_icon_idx(gicon);
     app.settings_win.set_has_group(has_group);
     app.settings_win.set_custom_dir(custom_dir);
-}
-
-fn persist_data(app: &Rc<App>) {
-    let st = app.state.borrow();
-    let _ = storage::save_phrases(&data_dir(), &st.data);
 }
 
 fn uid() -> String {
@@ -679,6 +707,9 @@ fn wire_settings(app: &Rc<App>) {
         {
             let mut st = a.state.borrow_mut();
             let len = st.data.groups.len() as i32;
+            if len == 0 {
+                return; // clamp(0, -1) 会 panic;与短语拖拽的空判断保持一致
+            }
             let from = from.clamp(0, len - 1) as usize;
             let to = to.clamp(0, len - 1) as usize;
             if from == to {
@@ -776,8 +807,8 @@ fn wire_settings(app: &Rc<App>) {
                 return;
             }
             st.settings.pet_id = p.id.clone();
-            let _ = storage::save_settings(&data_dir(), &st.settings);
         }
+        persist_settings(&a);
         refresh_pet_sprite(&a);
         refresh_settings(&a);
     });
@@ -789,9 +820,9 @@ fn wire_settings(app: &Rc<App>) {
             let mut st = a.state.borrow_mut();
             let old = st.settings.pet_scale;
             st.settings.pet_scale = new_scale;
-            let _ = storage::save_settings(&data_dir(), &st.settings);
             old
         };
+        persist_settings(&a);
         if (new_scale - old_scale).abs() > 0.001 {
             apply_pet_scale(&a, old_scale, new_scale);
         }
@@ -803,8 +834,8 @@ fn wire_settings(app: &Rc<App>) {
         {
             let mut st = a.state.borrow_mut();
             st.settings.theme = if solid { "solid".into() } else { "acrylic".into() };
-            let _ = storage::save_settings(&data_dir(), &st.settings);
         }
+        persist_settings(&a);
         set_theme(&a, solid);
     });
 
@@ -828,8 +859,8 @@ fn wire_settings(app: &Rc<App>) {
             {
                 let mut st = a.state.borrow_mut();
                 st.settings.custom_pet_dir = Some(dir.to_string_lossy().to_string());
-                let _ = storage::save_settings(&data_dir(), &st.settings);
             }
+            persist_settings(&a);
             refresh_pets(&a);
             refresh_settings(&a);
         }

@@ -87,28 +87,46 @@ impl Default for Settings {
 const PHRASES_FILE: &str = "phrases.json";
 const BACKUP_FILE: &str = "phrases.backup.json";
 const SETTINGS_FILE: &str = "settings.json";
+const SETTINGS_BACKUP_FILE: &str = "settings.backup.json";
 
 fn read_json<T: DeserializeOwned>(path: &Path) -> Option<T> {
     let text = fs::read_to_string(path).ok()?;
     serde_json::from_str(&text).ok()
 }
 
-/// 写临时文件后 rename,避免半写状态。
+/// 主文件读不出时回退 .old(换入被打断留下的上一版)
+fn read_json_with_old<T: DeserializeOwned>(path: &Path) -> Option<T> {
+    read_json(path).or_else(|| read_json(&path.with_extension("old")))
+}
+
+/// 写临时文件后换入:旧文件先挪 .old,新文件 rename 就位,失败回滚 .old。
+/// (Windows rename 不覆盖已存在目标,直接删旧再 rename 会留下"旧已删、新未就位"的丢文件窗口;
+/// 换入方案保证任意时刻主文件或 .old 至少一份完好,读取侧配合 .old 回退。)
 pub fn atomic_write(path: &Path, contents: &str) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
     let tmp = path.with_extension("tmp");
     fs::write(&tmp, contents)?;
-    // Windows 上 rename 到已存在目标会失败,先删旧
-    let _ = fs::remove_file(path);
-    fs::rename(&tmp, path)
+    if path.exists() {
+        let old = path.with_extension("old");
+        let _ = fs::remove_file(&old);
+        fs::rename(path, &old)?;
+        if let Err(e) = fs::rename(&tmp, path) {
+            let _ = fs::rename(&old, path); // 回滚
+            return Err(e);
+        }
+        let _ = fs::remove_file(&old);
+        Ok(())
+    } else {
+        fs::rename(&tmp, path)
+    }
 }
 
-/// 主文件 → 备份 → 默认;从备份恢复时回写主文件。
+/// 主文件 → .old → 备份 → 默认;从备份恢复时回写主文件。
 pub fn load_phrases(dir: &Path) -> PhraseData {
     let main = dir.join(PHRASES_FILE);
-    if let Some(data) = read_json::<PhraseData>(&main) {
+    if let Some(data) = read_json_with_old::<PhraseData>(&main) {
         return data;
     }
     if let Some(data) = read_json::<PhraseData>(&dir.join(BACKUP_FILE)) {
@@ -131,8 +149,25 @@ pub fn backup_phrases(dir: &Path) {
     }
 }
 
+/// 启动时调用:当前设置可读则拷为备份(与 phrases 同等保护)。
+pub fn backup_settings(dir: &Path) {
+    let main = dir.join(SETTINGS_FILE);
+    if read_json::<Settings>(&main).is_some() {
+        let _ = fs::copy(&main, dir.join(SETTINGS_BACKUP_FILE));
+    }
+}
+
+/// 主文件 → .old → 备份 → 默认;从备份恢复时回写主文件。
 pub fn load_settings(dir: &Path) -> Settings {
-    read_json::<Settings>(&dir.join(SETTINGS_FILE)).unwrap_or_default()
+    let main = dir.join(SETTINGS_FILE);
+    if let Some(s) = read_json_with_old::<Settings>(&main) {
+        return s;
+    }
+    if let Some(s) = read_json::<Settings>(&dir.join(SETTINGS_BACKUP_FILE)) {
+        let _ = save_settings(dir, &s);
+        return s;
+    }
+    Settings::default()
 }
 
 pub fn save_settings(dir: &Path, s: &Settings) -> io::Result<()> {
@@ -146,11 +181,54 @@ pub fn export_phrases(dir: &Path, dest: &Path) -> io::Result<()> {
     atomic_write(dest, &json)
 }
 
+const MAX_GROUPS: usize = 500;
+const MAX_PHRASES_PER_GROUP: usize = 5000;
+const MAX_TEXT_CHARS: usize = 10_000;
+
+/// 导入数据的语义校验+修补:规模/超长文本报错;空名、空短语、缺失/重复 id 就地修补。
+fn sanitize_import(data: &mut PhraseData) -> Result<(), String> {
+    if data.groups.len() > MAX_GROUPS {
+        return Err(format!("分组过多({},上限 {MAX_GROUPS})", data.groups.len()));
+    }
+    let mut ids = std::collections::HashSet::new();
+    let mut n = 0usize;
+    for g in &mut data.groups {
+        let name = g.name.trim();
+        g.name = if name.is_empty() { "未命名".into() } else { name.to_string() };
+        while g.id.trim().is_empty() || !ids.insert(g.id.clone()) {
+            n += 1;
+            g.id = format!("g-imp{n}");
+        }
+        if g.phrases.len() > MAX_PHRASES_PER_GROUP {
+            return Err(format!(
+                "分组「{}」短语过多({},上限 {MAX_PHRASES_PER_GROUP})",
+                g.name,
+                g.phrases.len()
+            ));
+        }
+        if let Some(p) = g.phrases.iter().find(|p| p.text.chars().count() > MAX_TEXT_CHARS) {
+            return Err(format!(
+                "存在超长短语({} 字,上限 {MAX_TEXT_CHARS})",
+                p.text.chars().count()
+            ));
+        }
+        g.phrases.retain(|p| !p.text.trim().is_empty());
+        for p in &mut g.phrases {
+            while p.id.trim().is_empty() || !ids.insert(p.id.clone()) {
+                n += 1;
+                p.id = format!("p-imp{n}");
+            }
+        }
+    }
+    Ok(())
+}
+
 /// 校验外部文件后覆盖存储,返回导入结果。
 pub fn import_phrases(dir: &Path, src: &Path) -> io::Result<PhraseData> {
     let text = fs::read_to_string(src)?;
-    let data: PhraseData = serde_json::from_str(&text)
+    let mut data: PhraseData = serde_json::from_str(&text)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("文件格式不正确: {e}")))?;
+    sanitize_import(&mut data).map_err(|m| io::Error::new(io::ErrorKind::InvalidData, m))?;
     save_phrases(dir, &data)?;
     Ok(data)
 }
@@ -192,13 +270,70 @@ mod tests {
     }
 
     #[test]
-    fn atomic_write_leaves_no_tmp() {
+    fn atomic_write_leaves_no_tmp_or_old() {
         let dir = tempdir().unwrap();
         let target = dir.path().join("phrases.json");
         atomic_write(&target, "{}").unwrap();
         atomic_write(&target, "{\"groups\":[]}").unwrap(); // 覆盖已有文件
         assert!(!target.with_extension("tmp").exists());
+        assert!(!target.with_extension("old").exists());
         assert_eq!(fs::read_to_string(&target).unwrap(), "{\"groups\":[]}");
+    }
+
+    #[test]
+    fn load_falls_back_to_old_when_main_corrupt() {
+        let dir = tempdir().unwrap();
+        let data = PhraseData::default();
+        // 模拟换入中断:.old 完好、主文件损坏
+        let json = serde_json::to_string(&data).unwrap();
+        fs::write(dir.path().join("phrases.old"), &json).unwrap();
+        fs::write(dir.path().join("phrases.json"), "{broken").unwrap();
+        assert_eq!(load_phrases(dir.path()), data);
+    }
+
+    #[test]
+    fn settings_recover_from_backup_when_main_corrupt() {
+        let dir = tempdir().unwrap();
+        let s = Settings { theme: "solid".into(), ..Settings::default() };
+        save_settings(dir.path(), &s).unwrap();
+        backup_settings(dir.path());
+        fs::write(dir.path().join("settings.json"), "{broken").unwrap();
+        assert_eq!(load_settings(dir.path()), s);
+        // 主文件已被修复
+        assert!(read_json::<Settings>(&dir.path().join("settings.json")).is_some());
+    }
+
+    #[test]
+    fn import_sanitizes_dup_ids_empty_names_and_drops_blank_phrases() {
+        let dir = tempdir().unwrap();
+        let src = dir.path().join("in.json");
+        fs::write(
+            &src,
+            r#"{"groups":[
+                {"id":"a","name":"  ","phrases":[{"id":"x","text":"one"},{"id":"x","text":"   "}]},
+                {"id":"a","name":"B","phrases":[{"id":"","text":"two"}]}
+            ]}"#,
+        )
+        .unwrap();
+        let data = import_phrases(dir.path(), &src).unwrap();
+        assert_eq!(data.groups[0].name, "未命名");
+        assert_eq!(data.groups[0].phrases.len(), 1, "空白短语被丢弃");
+        assert_ne!(data.groups[0].id, data.groups[1].id, "重复分组 id 被重建");
+        assert!(!data.groups[1].phrases[0].id.is_empty(), "空短语 id 被补齐");
+    }
+
+    #[test]
+    fn import_rejects_oversized_data() {
+        let dir = tempdir().unwrap();
+        let src = dir.path().join("in.json");
+        let huge = "x".repeat(10_001);
+        fs::write(
+            &src,
+            format!(r#"{{"groups":[{{"id":"a","name":"A","phrases":[{{"id":"p","text":"{huge}"}}]}}]}}"#),
+        )
+        .unwrap();
+        let err = import_phrases(dir.path(), &src).unwrap_err();
+        assert!(err.to_string().contains("超长"));
     }
 
     #[test]

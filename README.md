@@ -15,7 +15,7 @@
 [![License](https://img.shields.io/github/license/wangcheng6-ai/PetPhrase?color=success)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/wangcheng6-ai/PetPhrase?style=social)](https://github.com/wangcheng6-ai/PetPhrase/stargazers)
 
-**单进程原生应用:安装包 5.6MB · 常驻内存 ~23MB · 冷启动 ~0.3s**
+**单进程原生应用:安装包 5.7MB · 常驻内存 ~23MB · 冷启动 ~0.3s**
 
 </div>
 
@@ -102,10 +102,10 @@ npx petdex@latest install doraemon
 
 ```bash
 cd app-slint
-cargo test                # 21 个单元测试
+cargo test                # 27 个单元测试
 cargo build --release     # 产出 target/release/PetPhrase.exe
 # 打包安装程序(需 NSIS makensis):
-makensis installer.nsi    # 产出 target/PetPhrase_0.3.0_x64-setup.exe
+makensis installer.nsi    # 产出 target/PetPhrase_0.4.0_x64-setup.exe
 ```
 
 数据文件位于 `%APPDATA%\PetPhrase\{phrases.json, settings.json}`。
