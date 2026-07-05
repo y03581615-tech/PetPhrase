@@ -53,14 +53,27 @@
 
 ## 🐱 换一只喜欢的桌宠
 
-PetPhrase 兼容 [petdex](https://petdex.dev/) 桌宠格式——那个在 X 上火过的 Codex 桌宠生态。去 [petdex.dev](https://petdex.dev/) 逛一圈,挑一只喜欢的,一行命令装好:
+PetPhrase 兼容 [petdex](https://petdex.dev/) 桌宠格式——那个在 X 上火过的 Codex 桌宠生态。
+
+**前置条件**:已安装 [Node.js](https://nodejs.org/)(自带 `npx`,无需全局安装 petdex)。
+
+去 [petdex.dev](https://petdex.dev/) 逛一圈,挑一只喜欢的,一行命令装好:
 
 ```bash
 npx petdex@latest install <pet-name>
-# 例如:npx petdex@latest install yinyue-2
+
+# 例如,装爱坤和哆啦A梦:
+npx petdex@latest install kun-like
+npx petdex@latest install doraemon
 ```
 
-然后打开 PetPhrase 设置 →「外观与行为」,新桌宠已经出现在列表里,点选即换。同页还能调桌宠大小(小/中/大)。
+| `kun-like` | `doraemon` |
+|:---:|:---:|
+| ![爱坤](screenshots/kun-like.png) | ![哆啦A梦](screenshots/doraemon.png) |
+
+然后打开 PetPhrase 设置 →「外观与行为」,新桌宠已经出现在列表里,点选即换,**无需重启**。同页还能调桌宠大小(小/中/大)。
+
+> 常用命令的话,也可以 `npm install -g petdex`,之后直接敲 `petdex install <pet-name>`。
 
 也支持完全自定义:任意目录放上 `pet.json + spritesheet.webp/png`(参考 [petdex 格式](https://github.com/crafter-station/petdex)),在设置里指定该目录即可。
 
