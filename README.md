@@ -44,7 +44,7 @@
 
 ## 🎯 功能
 
-- **桌宠**:透明置顶、雪碧图待机动画,点击招手,可拖拽并记住位置
+- **桌宠**:透明置顶、雪碧图待机动画,点击招手,可拖拽并记住位置;大小三档可调(小/中/大),缩放时脚位不动
 - **常用语面板**:贴宠弹出;分组胶囊 Tab + 全组宫格;短句排成气泡流、长句卡片;搜索跨组过滤;点击复制 + ✓ 反馈 + 自动收起;失焦即隐
 - **分组管理**:增删改、长按拖动排序、12 个分组图标
 - **主题**:亚克力磨砂 / 实底浅色两种面板主题
@@ -60,7 +60,7 @@ npx petdex@latest install <pet-name>
 # 例如:npx petdex@latest install yinyue-2
 ```
 
-然后打开 PetPhrase 设置 →「外观与行为」,新桌宠已经出现在列表里,点选即换。
+然后打开 PetPhrase 设置 →「外观与行为」,新桌宠已经出现在列表里,点选即换。同页还能调桌宠大小(小/中/大)。
 
 也支持完全自定义:任意目录放上 `pet.json + spritesheet.webp/png`(参考 [petdex 格式](https://github.com/crafter-station/petdex)),在设置里指定该目录即可。
 
@@ -92,7 +92,7 @@ cd app-slint
 cargo test                # 21 个单元测试
 cargo build --release     # 产出 target/release/PetPhrase.exe
 # 打包安装程序(需 NSIS makensis):
-makensis installer.nsi    # 产出 target/PetPhrase_0.2.0_x64-setup.exe
+makensis installer.nsi    # 产出 target/PetPhrase_0.3.0_x64-setup.exe
 ```
 
 数据文件位于 `%APPDATA%\PetPhrase\{phrases.json, settings.json}`。

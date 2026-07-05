@@ -54,6 +54,23 @@ fn load_pet(dir: &Path) -> Option<PetInfo> {
     Some(PetInfo { id, name, spritesheet, error })
 }
 
+/// 解码雪碧图并裁出 idle 首帧作缩略图。
+/// 整张 RGBA 约 11.5MB/宠,只在此函数栈上短暂存在;返回的单帧 ~160KB,可安全常驻缓存。
+pub fn load_thumb(path: &str) -> slint::Image {
+    let Ok(img) = image::open(Path::new(path)) else {
+        return slint::Image::default();
+    };
+    let w = crate::anim::FRAME_W.min(img.width());
+    let h = crate::anim::FRAME_H.min(img.height());
+    let frame = img.crop_imm(0, 0, w, h).into_rgba8();
+    let buf = slint::SharedPixelBuffer::<slint::Rgba8Pixel>::clone_from_slice(
+        frame.as_raw(),
+        frame.width(),
+        frame.height(),
+    );
+    slint::Image::from_rgba8(buf)
+}
+
 /// 依序扫描多个根目录,每个根目录下的一级子目录 = 一个宠物包。
 /// 同 id 先到先得(内置目录优先级最高)。
 pub fn scan_pets(roots: &[&Path]) -> Vec<PetInfo> {
@@ -145,5 +162,21 @@ mod tests {
     fn nonexistent_root_is_skipped() {
         let pets = scan_pets(&[Path::new("Z:/no/such/dir")]);
         assert!(pets.is_empty());
+    }
+
+    #[test]
+    fn thumb_crops_first_frame_from_full_sheet() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("sheet.png");
+        image::RgbaImage::new(1536, 1872).save(&path).unwrap();
+        let thumb = load_thumb(&path.to_string_lossy());
+        let size = thumb.size();
+        assert_eq!((size.width, size.height), (192, 208));
+    }
+
+    #[test]
+    fn thumb_on_unreadable_file_returns_default() {
+        let thumb = load_thumb("Z:/no/such/sheet.webp");
+        assert_eq!(thumb.size().width, 0);
     }
 }

@@ -56,6 +56,9 @@ pub struct Settings {
     pub last_group: Option<String>,
     #[serde(default)]
     pub custom_pet_dir: Option<String>,
+    /// 桌宠渲染缩放(1.0 = 原始 192×208)
+    #[serde(default = "default_pet_scale")]
+    pub pet_scale: f32,
 }
 
 fn default_pet_id() -> String {
@@ -63,6 +66,9 @@ fn default_pet_id() -> String {
 }
 fn default_theme() -> String {
     "acrylic".into()
+}
+fn default_pet_scale() -> f32 {
+    1.0
 }
 
 impl Default for Settings {
@@ -73,6 +79,7 @@ impl Default for Settings {
             pet_pos: None,
             last_group: None,
             custom_pet_dir: None,
+            pet_scale: default_pet_scale(),
         }
     }
 }
@@ -200,7 +207,8 @@ mod tests {
         let s = load_settings(dir.path());
         assert_eq!(s.pet_id, "default");
         assert_eq!(s.theme, "acrylic");
-        let changed = Settings { pet_pos: Some((100, 200)), ..s };
+        assert_eq!(s.pet_scale, 1.0);
+        let changed = Settings { pet_pos: Some((100, 200)), pet_scale: 0.75, ..s };
         save_settings(dir.path(), &changed).unwrap();
         assert_eq!(load_settings(dir.path()), changed);
     }

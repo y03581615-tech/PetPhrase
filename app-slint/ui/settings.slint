@@ -1,7 +1,7 @@
 import { ListView, ScrollView } from "std-widgets.slint";
 import {
     Theme, GroupRowUi, PhraseRowUi, PetCardUi, GroupIcon, IconButton,
-    PrimaryButton, GhostButton, InputArea, SegmentedPair
+    PrimaryButton, GhostButton, InputArea, SegmentedPair, SegmentedRow
 } from "common.slint";
 
 export component SettingsWindow inherits Window {
@@ -12,6 +12,7 @@ export component SettingsWindow inherits Window {
     in property <int> group-icon-idx;
     in property <bool> has-group;
     in property <bool> solid-theme;
+    in property <int> pet-size-idx: 2; // 0小 1中 2大
     in-out property <bool> autostart-on;
     in property <string> custom-dir;
     in property <string> data-msg;
@@ -34,6 +35,7 @@ export component SettingsWindow inherits Window {
     callback phrase-dropped(int, int);
     callback pet-selected(int);
     callback theme-toggled(bool); // true=solid
+    callback pet-size-changed(int);
     callback autostart-toggled(bool);
     callback pick-dir;
     callback do-export;
@@ -503,15 +505,12 @@ export component SettingsWindow inherits Window {
                             padding: 8px;
                             spacing: 4px;
                             alignment: center;
+                            // thumb 已是 Rust 侧预裁好的单帧,无需 source-clip
                             if pet.err == "": Image {
                                 source: pet.thumb;
                                 width: 72px;
                                 height: 78px;
                                 image-fit: contain;
-                                source-clip-x: 0;
-                                source-clip-y: 0;
-                                source-clip-width: 192;
-                                source-clip-height: 208;
                             }
                             Text {
                                 text: pet.name;
@@ -541,6 +540,14 @@ export component SettingsWindow inherits Window {
                     alignment: start;
                     GhostButton { text: "选择自定义宠物目录…"; clicked => { root.pick-dir(); } }
                     Text { text: root.custom-dir; font-size: 12px; color: Theme.text-muted; vertical-alignment: center; }
+                }
+
+                Rectangle { height: 8px; }
+                Text { text: "桌宠大小"; font-size: 14px; font-weight: 600; color: Theme.text-primary; }
+                SegmentedRow {
+                    labels: ["小", "中", "大"];
+                    selected: root.pet-size-idx;
+                    changed(i) => { root.pet-size-changed(i); }
                 }
 
                 Rectangle { height: 8px; }

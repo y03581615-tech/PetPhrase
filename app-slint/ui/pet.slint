@@ -4,26 +4,26 @@ export component PetWindow inherits Window {
     in property <image> sheet;
     in property <int> frame-col;
     in property <int> frame-row;
+    in property <float> pet-scale: 1.0;
     callback pet-clicked;
     callback drag-start;
 
     no-frame: true;
     always-on-top: true;
     background: transparent;
-    width: 192px;
-    height: 208px;
+    width: 192px * pet-scale;
+    height: 208px * pet-scale;
     title: "PetPhrase";
 
     img := Image {
-        width: 192px;
-        height: 208px;
+        width: parent.width;
+        height: parent.height;
         source: root.sheet;
-        image-fit: preserve;
+        image-fit: fill;
         source-clip-x: root.frame-col * 192;
         source-clip-y: root.frame-row * 208;
         source-clip-width: 192;
         source-clip-height: 208;
-        animate width, height { duration: 150ms; easing: ease-out; }
     }
 
     // 拖拽后吞掉本次 click:系统拖窗接管后松手仍会触发 clicked

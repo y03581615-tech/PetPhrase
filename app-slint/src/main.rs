@@ -37,6 +37,19 @@ fn data_dir() -> PathBuf {
     PathBuf::from(std::env::var("APPDATA").expect("APPDATA 环境变量缺失")).join("PetPhrase")
 }
 
+/// 三档桌宠缩放,索引对应设置里的 小/中/大
+const PET_SCALES: [f32; 3] = [0.5, 0.75, 1.0];
+
+fn pet_scale_idx(scale: f32) -> i32 {
+    if scale < 0.625 {
+        0
+    } else if scale < 0.875 {
+        1
+    } else {
+        2
+    }
+}
+
 fn pet_roots(custom: &Option<String>) -> Vec<PathBuf> {
     let mut roots = Vec::new();
     if let Ok(exe) = std::env::current_exe() {
@@ -125,6 +138,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let solid = app.state.borrow().settings.theme == "solid";
     set_theme(&app, solid);
+    app.pet.set_pet_scale(app.state.borrow().settings.pet_scale);
 
     wire_pet(&app);
     wire_panel(&app);
@@ -228,6 +242,20 @@ fn refresh_pet_sprite(app: &Rc<App>) {
         app.state.borrow_mut().animator = Animator::new(rows, cols);
         app.pet.set_sheet(img);
     }
+}
+
+/// 应用缩放并移窗,锚定底边中点——宠的「脚」原地不动。
+/// 移窗触发 Moved 事件,pet_pos 由既有去抖逻辑保存。
+fn apply_pet_scale(app: &Rc<App>, old_scale: f32, new_scale: f32) {
+    app.pet.set_pet_scale(new_scale);
+    let win = app.pet.window();
+    let sf = win.scale_factor();
+    let pos = win.position();
+    let dw = anim::FRAME_W as f32 * (old_scale - new_scale) * sf;
+    let dh = anim::FRAME_H as f32 * (old_scale - new_scale) * sf;
+    let nx = pos.x + (dw / 2.0).round() as i32;
+    let ny = pos.y + dh.round() as i32;
+    win.set_position(slint::PhysicalPosition::new(nx, ny));
 }
 
 fn setup_frame_timer(app: &Rc<App>) {
@@ -514,10 +542,7 @@ fn refresh_settings(app: &Rc<App>) {
             let cache = &mut st.thumb_cache;
             cache
                 .entry(p.spritesheet.clone())
-                .or_insert_with(|| {
-                    slint::Image::load_from_path(std::path::Path::new(&p.spritesheet))
-                        .unwrap_or_default()
-                })
+                .or_insert_with(|| pet_loader::load_thumb(&p.spritesheet))
                 .clone()
         } else {
             slint::Image::default()
@@ -532,7 +557,10 @@ fn refresh_settings(app: &Rc<App>) {
 
     let custom_dir: SharedString = st.settings.custom_pet_dir.clone().unwrap_or_default().into();
     let has_group = !st.data.groups.is_empty();
+    let size_idx = pet_scale_idx(st.settings.pet_scale);
     drop(st);
+
+    app.settings_win.set_pet_size_idx(size_idx);
 
     app.settings_win.set_groups(ModelRc::new(VecModel::from(groups)));
     app.settings_win.set_phrases(ModelRc::new(VecModel::from(phrases)));
@@ -752,6 +780,22 @@ fn wire_settings(app: &Rc<App>) {
         }
         refresh_pet_sprite(&a);
         refresh_settings(&a);
+    });
+
+    let a = app.clone();
+    app.settings_win.on_pet_size_changed(move |i| {
+        let new_scale = PET_SCALES[i.clamp(0, 2) as usize];
+        let old_scale = {
+            let mut st = a.state.borrow_mut();
+            let old = st.settings.pet_scale;
+            st.settings.pet_scale = new_scale;
+            let _ = storage::save_settings(&data_dir(), &st.settings);
+            old
+        };
+        if (new_scale - old_scale).abs() > 0.001 {
+            apply_pet_scale(&a, old_scale, new_scale);
+        }
+        a.settings_win.set_pet_size_idx(pet_scale_idx(new_scale));
     });
 
     let a = app.clone();

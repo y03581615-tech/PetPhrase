@@ -231,6 +231,37 @@ export component SegmentedPair inherits Rectangle {
     }
 }
 
+/// 多段选择(等宽段,样式与 SegmentedPair 一致)
+export component SegmentedRow inherits Rectangle {
+    in property <[string]> labels;
+    in property <int> selected;
+    callback changed(int);
+    width: 280px;
+    height: 34px;
+    border-radius: 8px;
+    background: #eef2f7;
+    HorizontalLayout {
+        padding: 3px;
+        spacing: 2px;
+        for label[i] in root.labels: Rectangle {
+            border-radius: 6px;
+            background: root.selected == i ? #ffffff : (ta.has-hover ? #e8edf3 : transparent);
+            drop-shadow-blur: root.selected == i ? 6px : 0;
+            drop-shadow-color: #0f172a1f;
+            Text {
+                text: label;
+                font-size: 12.5px;
+                font-weight: root.selected == i ? 600 : 400;
+                color: root.selected == i ? Theme.text-primary : Theme.text-muted;
+            }
+            ta := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.changed(i); }
+            }
+        }
+    }
+}
+
 export component IconButton inherits Rectangle {
     in property <image> icon;
     in property <color> tint: Theme.text-muted;
