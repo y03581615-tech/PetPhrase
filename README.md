@@ -23,11 +23,15 @@
 
 ## ✨ 它长什么样
 
-| 常用语面板(亚克力磨砂) | 挑选你喜欢的桌宠 |
+| 桌宠静坐桌面 | 点它,常用语面板贴宠弹出 |
 |:---:|:---:|
-| ![常用语面板](screenshots/panel.png) | ![桌宠选择](screenshots/settings-pets.png) |
+| ![桌宠](screenshots/pet-desktop.png) | ![常用语面板](screenshots/panel.png) |
 
 <div align="center">
+
+**挑选桌宠、调大小、换主题**
+
+<img src="screenshots/settings-pets.png" width="640" alt="桌宠选择与外观设置">
 
 **管理分组与常用语**
 
