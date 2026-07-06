@@ -1,4 +1,40 @@
-import { Theme, PanelItemUi, TabUi, GroupIcon, IconButton } from "common.slint";
+import { Theme, PanelItemUi, TabUi, GroupIcon, IconButton, InputArea, GhostButton, PrimaryButton } from "common.slint";
+
+/// 右键菜单行:图标 + 文字,悬停高亮,样式随主题 token
+component CtxMenuRow inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    in property <bool> danger: false;
+    callback clicked;
+    height: 32px;
+    border-radius: 7px;
+    background: row-ta.has-hover ? (danger ? #fee2e2 : Theme.surface-item-hover) : transparent;
+    animate background { duration: 150ms; }
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
+        VerticalLayout {
+            alignment: center;
+            Image {
+                source: root.icon;
+                colorize: root.danger ? Theme.danger : Theme.text-secondary;
+                width: 14px;
+                height: 14px;
+            }
+        }
+        Text {
+            text: root.label;
+            font-size: 12.5px;
+            color: root.danger ? Theme.danger : Theme.text-primary;
+            vertical-alignment: center;
+        }
+    }
+    row-ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
 
 export component PanelWindow inherits Window {
     in property <[TabUi]> tabs;
@@ -15,6 +51,24 @@ export component PanelWindow inherits Window {
     callback gear-clicked;
     callback search-changed(string);
     callback escape-pressed;
+    // 常驻开关(会话级,不持久化)
+    in-out property <bool> pinned: false;
+    // 右键菜单动作,参数 = 条目下标(-1 = 空白区域)
+    callback item-edit-requested(int);
+    callback item-delete-requested(int);
+    callback item-add-requested(int);
+
+    // 右键菜单状态;ctx-idx = -1 表示空白区域(只给添加)
+    in-out property <bool> ctx-open: false;
+    property <int> ctx-idx: -1;
+    property <length> ctx-x;
+    property <length> ctx-y;
+
+    // 就地编辑器(编辑/新增共用);文本由 Rust 打开时灌入
+    in-out property <bool> editor-open: false;
+    in property <string> editor-text;
+    in property <bool> editor-is-add;
+    callback editor-saved(string);
 
     no-frame: true;
     always-on-top: true;
@@ -33,7 +87,11 @@ export component PanelWindow inherits Window {
     FocusScope {
         key-pressed(event) => {
             if (event.text == Key.Escape) {
-                if (root.grid-open) {
+                if (root.editor-open) {
+                    root.editor-open = false;
+                } else if (root.ctx-open) {
+                    root.ctx-open = false;
+                } else if (root.grid-open) {
                     root.grid-open = false;
                 } else {
                     root.escape-pressed();
@@ -103,6 +161,11 @@ export component PanelWindow inherits Window {
                         }
                     }
                     IconButton {
+                        icon: @image-url("icons/pin.svg");
+                        active: root.pinned;
+                        clicked => { root.pinned = !root.pinned; }
+                    }
+                    IconButton {
                         icon: @image-url("icons/settings.svg");
                         clicked => { root.gear-clicked(); }
                     }
@@ -149,14 +212,27 @@ export component PanelWindow inherits Window {
                 }
 
                 // ---- 混排列表 ----
-                Flickable {
+                list-flick := Flickable {
                     vertical-stretch: 1;
-                    viewport-height: root.content-h * 1px + 20px;
+                    viewport-height: Math.max(root.content-h * 1px + 20px, self.height);
 
                     Rectangle {
                         x: 10px;
                         y: 0;
                         width: parent.width - 20px;
+                        height: list-flick.viewport-height;
+
+                        // 空白区右键 → 只带「添加」的菜单(在条目之下,不抢条目事件)
+                        TouchArea {
+                            pointer-event(event) => {
+                                if (event.button == PointerEventButton.right && event.kind == PointerEventKind.down) {
+                                    root.ctx-idx = -1;
+                                    root.ctx-x = self.absolute-position.x + self.mouse-x;
+                                    root.ctx-y = self.absolute-position.y + self.mouse-y;
+                                    root.ctx-open = true;
+                                }
+                            }
+                        }
 
                         for item[i] in root.items: Rectangle {
                             x: item.x * 1px;
@@ -215,6 +291,14 @@ export component PanelWindow inherits Window {
                             item-ta := TouchArea {
                                 mouse-cursor: pointer;
                                 clicked => { root.item-clicked(i); }
+                                pointer-event(event) => {
+                                    if (event.button == PointerEventButton.right && event.kind == PointerEventKind.down) {
+                                        root.ctx-idx = i;
+                                        root.ctx-x = self.absolute-position.x + self.mouse-x;
+                                        root.ctx-y = self.absolute-position.y + self.mouse-y;
+                                        root.ctx-open = true;
+                                    }
+                                }
                             }
                         }
 
@@ -287,6 +371,115 @@ export component PanelWindow inherits Window {
                                     root.grid-open = false;
                                     root.tab-clicked(flat);
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ---- 右键菜单(面板内浮层,勿用独立窗口——焦点链会触发失焦自隐) ----
+        if root.ctx-open: Rectangle {
+            // 全屏点击拦截:点菜单外任意处关闭
+            TouchArea {
+                clicked => { root.ctx-open = false; }
+                pointer-event(event) => {
+                    if (event.button == PointerEventButton.right && event.kind == PointerEventKind.down) {
+                        root.ctx-open = false;
+                    }
+                }
+            }
+            Rectangle {
+                x: Math.min(root.ctx-x, root.width - self.width - 8px);
+                y: Math.min(root.ctx-y, root.height - self.height - 8px);
+                width: 148px;
+                height: menu-col.preferred-height + 12px;
+                background: Theme.surface-sheet;
+                border-width: 1px;
+                border-color: Theme.border-soft;
+                border-radius: 10px;
+                drop-shadow-blur: 24px;
+                drop-shadow-color: #0f172a2e;
+                // 挡住穿透到下层的点击
+                TouchArea { }
+                menu-col := VerticalLayout {
+                    x: 6px;
+                    y: 6px;
+                    width: parent.width - 12px;
+                    spacing: 2px;
+                    if root.ctx-idx >= 0: CtxMenuRow {
+                        icon: @image-url("icons/pencil.svg");
+                        label: "编辑此条";
+                        clicked => {
+                            root.ctx-open = false;
+                            root.item-edit-requested(root.ctx-idx);
+                        }
+                    }
+                    CtxMenuRow {
+                        icon: @image-url("icons/plus.svg");
+                        label: "添加常用语";
+                        clicked => {
+                            root.ctx-open = false;
+                            root.item-add-requested(root.ctx-idx);
+                        }
+                    }
+                    if root.ctx-idx >= 0: CtxMenuRow {
+                        icon: @image-url("icons/trash-2.svg");
+                        label: "删除此条";
+                        danger: true;
+                        clicked => {
+                            root.ctx-open = false;
+                            root.item-delete-requested(root.ctx-idx);
+                        }
+                    }
+                }
+            }
+        }
+
+        // ---- 就地编辑器(编辑/新增共用,面板内浮层) ----
+        if root.editor-open: Rectangle {
+            background: #0f172a40;
+            TouchArea { clicked => { root.editor-open = false; } }
+            Rectangle {
+                x: 14px;
+                y: 70px;
+                width: parent.width - 28px;
+                height: 230px;
+                background: Theme.surface-sheet;
+                border-width: 1px;
+                border-color: Theme.border-soft;
+                border-radius: 12px;
+                drop-shadow-blur: 24px;
+                drop-shadow-color: #0f172a2e;
+                TouchArea { } // 挡穿透
+                VerticalLayout {
+                    padding: 12px;
+                    spacing: 8px;
+                    Text {
+                        text: root.editor-is-add ? "添加常用语" : "编辑常用语";
+                        font-size: 13px;
+                        font-weight: 600;
+                        color: Theme.text-primary;
+                    }
+                    editor-input := InputArea {
+                        text: root.editor-text;
+                        placeholder: "输入常用语,可多行…";
+                        vertical-stretch: 1;
+                        // 浮层随 editor-open 创建,init 即自动聚焦、光标落文末
+                        init => { self.focus-end(); }
+                    }
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: 8px;
+                        GhostButton {
+                            text: "取消";
+                            clicked => { root.editor-open = false; }
+                        }
+                        PrimaryButton {
+                            text: "保存";
+                            clicked => {
+                                root.editor-saved(editor-input.text);
+                                root.editor-open = false;
                             }
                         }
                     }

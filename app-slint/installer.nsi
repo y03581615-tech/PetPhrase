@@ -4,12 +4,14 @@ Unicode true
 !include "FileFunc.nsh"
 
 !define APP_NAME "PetPhrase"
-!define APP_VERSION "0.4.0"
+!define APP_VERSION "0.5.0"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
 
 Name "${APP_NAME}"
 OutFile "target\PetPhrase_${APP_VERSION}_x64-setup.exe"
 InstallDir "$LOCALAPPDATA\Programs\${APP_NAME}"
+; 覆盖安装时默认回到上次安装目录(读卸载注册表 InstallLocation)
+InstallDirRegKey HKCU "${UNINST_KEY}" "InstallLocation"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
 

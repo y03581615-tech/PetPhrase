@@ -38,6 +38,8 @@
 ## 🚀 快速上手
 
 1. 从 [Releases](https://github.com/wangcheng6-ai/PetPhrase/releases/latest) 下载 `PetPhrase_x.y.z_x64-setup.exe`,双击安装(装到用户目录,**无需管理员权限**)
+
+   > ⚠️ **首次运行会出现 Windows 风险提示**:安装包未购买代码签名证书,SmartScreen 会弹「Windows 已保护你的电脑」。点 **「更多信息」→「仍要运行」** 即可。代码全部开源,安装包由本仓库源码构建,可自行审计或[从源码构建](#-从源码构建)。
 2. 桌面右下角出现一只桌宠——**点击它**,弹出常用语面板
 3. 点右上角 ⚙ 打开设置,建分组、加常用语(支持多行文本)
 4. 之后每次点桌宠 → 点短语 → 已复制 ✓,直接去粘贴
@@ -46,6 +48,8 @@
 
 - **桌宠**:透明置顶、雪碧图待机动画,点击招手,可拖拽并记住位置;大小三档可调(小/中/大),缩放时脚位不动
 - **常用语面板**:贴宠弹出;分组胶囊 Tab + 全组宫格;短句排成气泡流、长句卡片;搜索跨组过滤;点击复制 + ✓ 反馈 + 自动收起;失焦即隐
+- **📌 面板常驻**:点亮图钉后连续复制多条不收起,拖动桌宠面板实时跟随;再点图钉/点桌宠/Esc 收起
+- **右键就地管理**:面板里右键短语可直接编辑/删除,右键空白处快速添加,弹出即可输入,不用打开设置窗
 - **分组管理**:增删改、长按拖动排序、12 个分组图标
 - **主题**:亚克力磨砂 / 实底浅色两种面板主题
 - **数据**:开机自启可选;JSON 导入导出;数据原子写入 + 启动备份自动恢复,卸载重装不丢
@@ -105,7 +109,7 @@ cd app-slint
 cargo test                # 27 个单元测试
 cargo build --release     # 产出 target/release/PetPhrase.exe
 # 打包安装程序(需 NSIS makensis):
-makensis installer.nsi    # 产出 target/PetPhrase_0.4.0_x64-setup.exe
+makensis installer.nsi    # 产出 target/PetPhrase_0.5.0_x64-setup.exe
 ```
 
 数据文件位于 `%APPDATA%\PetPhrase\{phrases.json, settings.json}`。

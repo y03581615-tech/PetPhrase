@@ -110,6 +110,10 @@ struct State {
     panel_native_ready: bool,
     /// show 后是否真正拿到过焦点 —— 防初始 Focused(false) 误隐藏
     panel_got_focus: bool,
+    /// 就地编辑器目标:(分组下标, Some(短语下标)=编辑 / None=新增)
+    pending_edit: Option<(usize, Option<usize>)>,
+    /// 常驻面板因打开设置而暂隐,设置关闭后恢复
+    panel_resume_after_settings: bool,
 }
 
 struct App {
@@ -164,6 +168,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             thumb_cache: HashMap::new(),
             panel_native_ready: false,
             panel_got_focus: false,
+            pending_edit: None,
+            panel_resume_after_settings: false,
         }),
         hide_timer: slint::Timer::default(),
         move_timer: slint::Timer::default(),
@@ -183,12 +189,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     refresh_panel(&app);
     // refresh_settings 延迟到设置窗打开时:缩略图解码占 10+MB/宠,不该常驻
 
-    // 设置窗关闭 → 释放缩略图缓存与模型
+    // 设置窗关闭 → 释放缩略图缓存与模型;常驻面板若因设置暂隐则恢复
     {
         let a = app.clone();
         app.settings_win.window().on_close_requested(move || {
             a.state.borrow_mut().thumb_cache.clear();
             a.settings_win.set_pets(ModelRc::new(VecModel::from(Vec::<PetCardUi>::new())));
+            let resume = std::mem::take(&mut a.state.borrow_mut().panel_resume_after_settings);
+            if resume && a.panel.get_pinned() {
+                show_panel(&a);
+            }
             slint::CloseRequestResponse::HideWindow
         });
     }
@@ -233,10 +243,17 @@ fn wire_pet(app: &Rc<App>) {
         });
     });
 
-    // 拖完保存位置(去抖 500ms)
+    // 拖完保存位置(去抖 500ms);常驻开启时面板实时跟随
     let a = app.clone();
     app.pet.window().on_winit_window_event(move |_, event| {
         if let winit::event::WindowEvent::Moved(pos) = event {
+            if a.panel.get_pinned() && a.panel.window().is_visible() {
+                if let Some(p) = compute_panel_placement(&a) {
+                    a.panel
+                        .window()
+                        .set_position(slint::PhysicalPosition::new(p.x as i32, p.y as i32));
+                }
+            }
             let (x, y) = (pos.x, pos.y);
             let a2 = a.clone();
             a.move_timer.start(
@@ -371,11 +388,100 @@ fn wire_panel(app: &Rc<App>) {
     let a = app.clone();
     app.panel.on_gear_clicked(move || {
         open_settings(&a);
-        hide_panel(&a);
+        // 常驻时 open_settings 已暂隐面板并保留图钉;非常驻正常收起
+        if !a.panel.get_pinned() {
+            hide_panel(&a);
+        }
     });
 
     let a = app.clone();
     app.panel.on_escape_pressed(move || hide_panel(&a));
+
+    // ---- 右键菜单动作(LaidItem 带 group_idx/phrase_idx 定位回源数据) ----
+    let a = app.clone();
+    app.panel.on_item_delete_requested(move |i| {
+        {
+            let mut st = a.state.borrow_mut();
+            let Some((gi, pi)) = st.items.get(i as usize).map(|it| (it.group_idx, it.phrase_idx))
+            else {
+                return;
+            };
+            if let Some(g) = st.data.groups.get_mut(gi) {
+                if pi < g.phrases.len() {
+                    g.phrases.remove(pi);
+                }
+            }
+        }
+        persist_data(&a);
+        refresh_panel(&a);
+        if a.settings_win.window().is_visible() {
+            refresh_settings(&a);
+        }
+    });
+
+    // 编辑/添加:面板内就地编辑器,不跳设置窗
+    let a = app.clone();
+    app.panel.on_item_edit_requested(move |i| {
+        let Some((gi, pi, text)) = a
+            .state
+            .borrow()
+            .items
+            .get(i as usize)
+            .map(|it| (it.group_idx, it.phrase_idx, it.text.clone()))
+        else {
+            return;
+        };
+        a.state.borrow_mut().pending_edit = Some((gi, Some(pi)));
+        a.panel.set_editor_is_add(false);
+        a.panel.set_editor_text(text.into());
+        a.panel.set_editor_open(true);
+    });
+
+    // i < 0 = 空白区右键,落到当前分组
+    let a = app.clone();
+    app.panel.on_item_add_requested(move |i| {
+        let gi = {
+            let st = a.state.borrow();
+            if st.data.groups.is_empty() {
+                return;
+            }
+            st.items
+                .get(i.max(0) as usize)
+                .filter(|_| i >= 0)
+                .map(|it| it.group_idx)
+                .unwrap_or(st.active_group.min(st.data.groups.len() - 1))
+        };
+        a.state.borrow_mut().pending_edit = Some((gi, None));
+        a.panel.set_editor_is_add(true);
+        a.panel.set_editor_text("".into());
+        a.panel.set_editor_open(true);
+    });
+
+    let a = app.clone();
+    app.panel.on_editor_saved(move |text| {
+        let text = text.trim().to_string();
+        if text.is_empty() {
+            return;
+        }
+        let Some((gi, target)) = a.state.borrow_mut().pending_edit.take() else { return };
+        {
+            let mut st = a.state.borrow_mut();
+            let Some(g) = st.data.groups.get_mut(gi) else { return };
+            match target {
+                Some(pi) => {
+                    if let Some(p) = g.phrases.get_mut(pi) {
+                        p.text = text;
+                    }
+                }
+                None => g.phrases.push(storage::Phrase { id: uid(), text }),
+            }
+        }
+        persist_data(&a);
+        refresh_panel(&a);
+        if a.settings_win.window().is_visible() {
+            refresh_settings(&a);
+        }
+    });
 }
 
 fn select_group(app: &Rc<App>, idx: usize) {
@@ -409,11 +515,20 @@ fn copy_item(app: &Rc<App>, i: i32) {
         app.panel.set_copied_idx(i);
         app.state.borrow_mut().animator.play(PetState::Wave, true);
         let a = app.clone();
-        app.hide_timer.start(
-            slint::TimerMode::SingleShot,
-            Duration::from_millis(200),
-            move || hide_panel(&a),
-        );
+        if app.panel.get_pinned() {
+            // 常驻:不收面板,✓ 反馈稍后自清
+            app.hide_timer.start(
+                slint::TimerMode::SingleShot,
+                Duration::from_millis(800),
+                move || a.panel.set_copied_idx(-1),
+            );
+        } else {
+            app.hide_timer.start(
+                slint::TimerMode::SingleShot,
+                Duration::from_millis(200),
+                move || hide_panel(&a),
+            );
+        }
     } else {
         app.panel.set_failed_idx(i);
     }
@@ -435,14 +550,10 @@ fn ensure_panel_native(app: &Rc<App>) {
     app.state.borrow_mut().panel_native_ready = true;
 }
 
-fn toggle_panel(app: &Rc<App>) {
-    if app.panel.window().is_visible() {
-        hide_panel(app);
-        return;
-    }
-    // 贴宠定位(物理像素)
+/// 贴宠定位(物理像素)
+fn compute_panel_placement(app: &Rc<App>) -> Option<logic::Placement> {
     let scale = app.pet.window().scale_factor();
-    let placement = app.pet.window().with_winit_window(|w: &winit::window::Window| {
+    app.pet.window().with_winit_window(|w: &winit::window::Window| {
         let pos = w.outer_position().unwrap_or_default();
         let size = w.outer_size();
         let (mx, my, mw, mh) = match w.current_monitor() {
@@ -459,16 +570,27 @@ fn toggle_panel(app: &Rc<App>) {
             logic::PANEL_H * scale,
             logic::Rect { x: mx, y: my, w: mw, h: mh },
         )
-    });
-    let Some(placement) = placement else {
-        dbg_log("toggle_panel: no placement (pet native window missing?)");
+    })
+}
+
+fn toggle_panel(app: &Rc<App>) {
+    if app.panel.window().is_visible() {
+        hide_panel(app);
+        return;
+    }
+    show_panel(app);
+}
+
+fn show_panel(app: &Rc<App>) {
+    let Some(placement) = compute_panel_placement(app) else {
+        dbg_log("show_panel: no placement (pet native window missing?)");
         return;
     };
     app.state.borrow_mut().panel_got_focus = false;
 
     app.panel.set_search_text("".into());
     refresh_panel(app);
-    dbg_log(&format!("toggle_panel: show at {},{}", placement.x, placement.y));
+    dbg_log(&format!("show_panel: show at {},{}", placement.x, placement.y));
     if let Err(e) = app.panel.show() {
         dbg_log(&format!("panel.show err: {e}"));
         return;
@@ -486,7 +608,8 @@ fn toggle_panel(app: &Rc<App>) {
                 a.state.borrow_mut().panel_got_focus = true;
             }
             winit::event::WindowEvent::Focused(false) => {
-                if a.state.borrow().panel_got_focus {
+                // 常驻开启时失焦不隐,收起只走图钉关/点宠/Esc
+                if a.state.borrow().panel_got_focus && !a.panel.get_pinned() {
                     hide_panel(&a);
                 }
             }
@@ -508,12 +631,21 @@ fn dbg_log(msg: &str) {
 
 fn hide_panel(app: &Rc<App>) {
     app.panel.set_grid_open(false);
+    app.panel.set_ctx_open(false);
+    app.panel.set_pinned(false); // 收起即解除常驻(点宠/Esc/图钉关,语义一致)
     let _ = app.panel.window().hide();
 }
 
 /* ================= 设置窗 ================= */
 
 fn open_settings(app: &Rc<App>) {
+    // 常驻面板遇设置窗:暂隐(保留图钉),设置关闭后恢复
+    if app.panel.get_pinned() && app.panel.window().is_visible() {
+        app.state.borrow_mut().panel_resume_after_settings = true;
+        app.panel.set_ctx_open(false);
+        app.panel.set_editor_open(false);
+        let _ = app.panel.window().hide();
+    }
     refresh_pets(app);
     refresh_settings(app);
     let _ = app.settings_win.show();

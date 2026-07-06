@@ -150,6 +150,11 @@ export component GhostButton inherits Rectangle {
 export component InputArea inherits Rectangle {
     in-out property <string> text <=> ti.text;
     in property <string> placeholder;
+    /// 聚焦并把光标移到文末(就地编辑器打开时调用,免二次点击)
+    public function focus-end() {
+        ti.focus();
+        ti.set-selection-offsets(ti.text.character-count, ti.text.character-count);
+    }
     border-radius: 8px;
     border-width: 1px;
     border-color: ti.has-focus ? Theme.accent : #e2e8f0;
@@ -264,15 +269,17 @@ export component SegmentedRow inherits Rectangle {
 export component IconButton inherits Rectangle {
     in property <image> icon;
     in property <color> tint: Theme.text-muted;
+    /// 常亮激活态(如面板常驻图钉):图标转主题色,底色浅橘
+    in property <bool> active: false;
     callback clicked;
     width: 28px;
     height: 28px;
     border-radius: 8px;
-    background: ta.has-hover ? Theme.surface-item-hover : transparent;
+    background: root.active ? Theme.accent-soft : (ta.has-hover ? Theme.surface-item-hover : transparent);
     animate background { duration: 150ms; }
     Image {
         source: root.icon;
-        colorize: ta.has-hover ? Theme.text-primary : root.tint;
+        colorize: root.active ? Theme.accent : (ta.has-hover ? Theme.text-primary : root.tint);
         width: 15px;
         height: 15px;
     }
