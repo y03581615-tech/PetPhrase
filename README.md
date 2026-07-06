@@ -23,21 +23,9 @@
 
 ## ✨ 它长什么样
 
-| 桌宠静坐桌面 | 点它,常用语面板贴宠弹出 |
-|:---:|:---:|
-| ![桌宠](screenshots/pet-desktop.png) | ![常用语面板](screenshots/panel.png) |
-
-<div align="center">
-
-**挑选桌宠、调大小、换主题**
-
-<img src="screenshots/settings-pets.png" width="640" alt="桌宠选择与外观设置">
-
-**管理分组与常用语**
-
-<img src="screenshots/settings-phrases.png" width="640" alt="常用语管理">
-
-</div>
+| 桌宠静坐桌面 | 点它,面板贴宠弹出 | 挑选桌宠、调大小、换主题 | 管理分组与常用语 |
+|:---:|:---:|:---:|:---:|
+| <img src="screenshots/pet-desktop.png" height="180" alt="桌宠"> | <img src="screenshots/panel.png" height="180" alt="常用语面板"> | <img src="screenshots/settings-pets.png" height="180" alt="桌宠选择与外观设置"> | <img src="screenshots/settings-phrases.png" height="180" alt="常用语管理"> |
 
 ## 🚀 快速上手
 
