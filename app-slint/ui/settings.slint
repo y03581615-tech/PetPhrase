@@ -541,54 +541,69 @@ export component SettingsWindow inherits Window {
 
                 Text { text: "桌宠形象"; font-size: 14px; font-weight: 600; color: Theme.text-primary; }
                 Text {
-                    text: "扫描内置宠物、~/.codex/pets(npx petdex 安装位置)与自定义目录,兼容 petdex 格式。";
+                    text: "扫描内置宠物、~/.codex/pets(npx petdex 安装位置)与自定义目录,兼容 petdex 格式。鼠标悬停列表,滚轮可横向浏览全部桌宠。";
                     font-size: 12px;
                     color: Theme.text-muted;
                     wrap: word-wrap;
                 }
 
-                HorizontalLayout {
-                    spacing: 10px;
-                    alignment: start;
-                    for pet[i] in root.pets: Rectangle {
-                        width: 118px;
+                Rectangle {
+                    height: 140px;
+                    pet-scroll := ScrollView {
                         height: 132px;
-                        border-radius: 12px;
-                        border-width: 2px;
-                        border-color: pet.selected ? Theme.accent : (pet-ta.has-hover && pet.err == "" ? #cbd5e1 : #e2e8f0);
-                        background: pet.selected ? #fff7ed : #ffffff;
-                        opacity: pet.err != "" ? 0.55 : 1.0;
-                        VerticalLayout {
-                            padding: 8px;
-                            spacing: 4px;
-                            alignment: center;
-                            // thumb 已是 Rust 侧预裁好的单帧,无需 source-clip
-                            if pet.err == "": Image {
-                                source: pet.thumb;
-                                width: 72px;
-                                height: 78px;
-                                image-fit: contain;
+                        vertical-scrollbar-policy: disabled;
+                        horizontal-scrollbar-policy: as-needed;
+
+                        HorizontalLayout {
+                            spacing: 10px;
+                            alignment: start;
+                            for pet[i] in root.pets: Rectangle {
+                                width: 118px;
+                                height: 132px;
+                                border-radius: 12px;
+                                border-width: 2px;
+                                border-color: pet.selected ? Theme.accent : (pet-ta.has-hover && pet.err == "" ? #cbd5e1 : #e2e8f0);
+                                background: pet.selected ? #fff7ed : #ffffff;
+                                opacity: pet.err != "" ? 0.55 : 1.0;
+                                VerticalLayout {
+                                    padding: 8px;
+                                    spacing: 4px;
+                                    alignment: center;
+                                    // thumb 已是 Rust 侧预裁好的单帧,无需 source-clip
+                                    if pet.err == "": Image {
+                                        source: pet.thumb;
+                                        width: 72px;
+                                        height: 78px;
+                                        image-fit: contain;
+                                    }
+                                    Text {
+                                        text: pet.name;
+                                        font-size: 12px;
+                                        font-weight: 600;
+                                        horizontal-alignment: center;
+                                        color: Theme.text-primary;
+                                        overflow: elide;
+                                    }
+                                    if pet.err != "": Text {
+                                        text: pet.err;
+                                        font-size: 10.5px;
+                                        color: Theme.danger;
+                                        horizontal-alignment: center;
+                                        wrap: word-wrap;
+                                    }
+                                }
+                                pet-ta := TouchArea {
+                                    enabled: pet.err == "";
+                                    mouse-cursor: pointer;
+                                    clicked => { root.pet-selected(i); }
+                                    wheel-event(event) => {
+                                        pet-scroll.viewport-x = Math.max(0px, Math.min(
+                                            pet-scroll.viewport-x - event.delta-y,
+                                            pet-scroll.viewport-width - pet-scroll.width));
+                                        accept;
+                                    }
+                                }
                             }
-                            Text {
-                                text: pet.name;
-                                font-size: 12px;
-                                font-weight: 600;
-                                horizontal-alignment: center;
-                                color: Theme.text-primary;
-                                overflow: elide;
-                            }
-                            if pet.err != "": Text {
-                                text: pet.err;
-                                font-size: 10.5px;
-                                color: Theme.danger;
-                                horizontal-alignment: center;
-                                wrap: word-wrap;
-                            }
-                        }
-                        pet-ta := TouchArea {
-                            enabled: pet.err == "";
-                            mouse-cursor: pointer;
-                            clicked => { root.pet-selected(i); }
                         }
                     }
                 }
