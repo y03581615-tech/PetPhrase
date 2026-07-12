@@ -551,8 +551,9 @@ export component SettingsWindow inherits Window {
                     height: 140px;
                     pet-scroll := ScrollView {
                         height: 132px;
-                        vertical-scrollbar-policy: disabled;
-                        horizontal-scrollbar-policy: as-needed;
+                        vertical-scrollbar-policy: ScrollBarPolicy.always-off;
+                        horizontal-scrollbar-policy: ScrollBarPolicy.as-needed;
+                        mouse-drag-pan-enabled: true;
 
                         HorizontalLayout {
                             spacing: 10px;
@@ -596,7 +597,7 @@ export component SettingsWindow inherits Window {
                                     enabled: pet.err == "";
                                     mouse-cursor: pointer;
                                     clicked => { root.pet-selected(i); }
-                                    wheel-event(event) => {
+                                    scroll-event(event) => {
                                         pet-scroll.viewport-x = Math.max(0px, Math.min(
                                             pet-scroll.viewport-x - event.delta-y,
                                             pet-scroll.viewport-width - pet-scroll.width));
